@@ -281,8 +281,7 @@ def parse_whatsapp_orders(whatsapp_text):
     
     # Split by WhatsApp timestamp pattern [date, time] ~ sender:
     # Pattern: [‏17‏/7‏/2025، 12:37:42 ص] ~ sender name:
-    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:
-"
+    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:"
     
     # Split the text by timestamps
     order_blocks = re.split(timestamp_pattern, whatsapp_text)
