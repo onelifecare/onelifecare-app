@@ -7,139 +7,269 @@
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 20px; 
-            background-color: #f5f5f5;
+            margin: 0; 
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             direction: rtl;
         }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .nav-btn:hover, .nav-btn.active {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .nav-btn.green {
+            background: #4CAF50;
+            border-color: #4CAF50;
+        }
+        
+        .nav-btn.green:hover {
+            background: #45a049;
+        }
+        
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiIGZpbGw9IiNGRkZGRkYiLz4KPHN2ZyB4PSIxNSIgeT0iMTUiIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM2NjdlZWEiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KPHBhdGggZD0iTTIyIDEyaC00bC0zIDlMOSAzdjlsLTMtOUgyIi8+Cjwvc3ZnPgo8L3N2Zz4=') no-repeat center;
+            background-size: contain;
+        }
+        
+        .container { 
+            max-width: 900px; 
+            margin: 40px auto; 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            backdrop-filter: blur(10px);
+        }
+        
         h1 { 
             color: #2c3e50; 
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            font-size: 2.2em;
+            font-weight: 600;
         }
-        .container { 
-            max-width: 900px; 
-            margin: auto; 
-            background: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        }
+        
         .section {
             margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: #fafafa;
+            padding: 25px;
+            border: none;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
+        
         .section h2 {
             color: #34495e;
             margin-top: 0;
-            border-bottom: 2px solid #3498db;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
             padding-bottom: 10px;
+            font-size: 1.4em;
         }
+        
         textarea { 
-            width: 100%; 
+            width: calc(100% - 30px); 
             height: 200px; 
-            margin-bottom: 15px; 
+            margin-bottom: 20px; 
             padding: 15px; 
-            border: 2px solid #bdc3c7; 
-            border-radius: 6px; 
+            border: 2px solid #e0e6ed; 
+            border-radius: 10px; 
             font-size: 14px;
-            font-family: 'Courier New', monospace;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             resize: vertical;
+            transition: border-color 0.3s ease;
         }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
         input[type="text"] { 
             width: calc(100% - 32px); 
-            padding: 12px 15px; 
-            margin-bottom: 15px; 
-            border: 2px solid #bdc3c7; 
-            border-radius: 6px; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            border: 2px solid #e0e6ed; 
+            border-radius: 10px; 
             font-size: 16px;
+            transition: border-color 0.3s ease;
         }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
         button { 
-            padding: 12px 25px; 
-            background: #3498db; 
+            padding: 15px 30px; 
+            background: #4CAF50; 
             color: white; 
             border: none; 
-            border-radius: 6px; 
+            border-radius: 25px; 
             cursor: pointer; 
             font-size: 16px;
+            font-weight: 600;
             margin-left: 10px;
-            transition: background-color 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
         }
+        
         button:hover { 
-            background: #2980b9; 
+            background: #45a049; 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
         }
+        
         .clear-btn {
-            background: #e74c3c;
+            background: #f44336;
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
         }
+        
         .clear-btn:hover {
-            background: #c0392b;
+            background: #da190b;
+            box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
         }
+        
+        .report-btn {
+            background: #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .report-btn:hover {
+            background: #5a6fd8;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
         #message { 
-            margin-top: 15px; 
-            padding: 15px; 
-            border-radius: 6px; 
-            font-weight: bold;
-        }
-        #report { 
             margin-top: 20px; 
-            border-top: 2px solid #ecf0f1; 
-            padding-top: 20px; 
+            padding: 15px 20px; 
+            border-radius: 10px; 
+            font-weight: 600;
+            border-left: 4px solid;
         }
+        
+        #report { 
+            margin-top: 25px; 
+        }
+        
         .report-content {
-            background: #2c3e50;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             color: #ecf0f1;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 25px;
+            border-radius: 15px;
             font-family: 'Courier New', monospace;
             white-space: pre-line;
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.8;
             max-height: 600px;
             overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
+        
         .success { 
             background-color: #d4edda; 
             color: #155724; 
-            border: 1px solid #c3e6cb;
+            border-left-color: #4CAF50;
         }
+        
         .error { 
             background-color: #f8d7da; 
             color: #721c24; 
-            border: 1px solid #f5c6cb;
+            border-left-color: #f44336;
         }
+        
         .loading {
             background-color: #fff3cd;
             color: #856404;
-            border: 1px solid #ffeaa7;
+            border-left-color: #ffc107;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            color: #2d3436;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 5px 15px rgba(255, 234, 167, 0.3);
+        }
+        
+        .warning-icon {
+            color: #e17055;
+            font-size: 18px;
+            margin-left: 8px;
         }
     </style>
 </head>
 <body>
+    <div class="header">
+        <div class="nav-buttons">
+            <a href="#" class="nav-btn active">إدخال الأوردرات</a>
+            <a href="#" class="nav-btn green" onclick="document.getElementById('report-section').scrollIntoView()">عرض التقرير</a>
+        </div>
+        <div class="logo"></div>
+    </div>
+
     <div class="container">
-        <h1>نظام إدارة أوردرات OneLifeCare</h1>
+        <h1>إدخال الأوردرات اليومية</h1>
 
         <div class="section">
             <h2>حفظ الأوردرات</h2>
-            <label for="teamName">اسم الفريق:</label>
+            <label for="teamName">اختر الفريق:</label>
             <input type="text" id="teamName" placeholder="مثال: A, B, C, C1, Follow-up">
-            <textarea id="ordersInput" placeholder="أدخل الأوردرات هنا، كل أوردر في سطر منفصل أو مفصولة بأسطر جديدة.
+            
+            <div class="info-box">
+                <span class="warning-icon">⚠️</span>
+                الصق نصوص الأوردرات هنا:
+                <br><br>
+                ملاحظة: النظام سيقوم تلقائياً بقراءة الأرقام وأسماء المرسلين والتركيز على نصوص الأوردرات فقط
+                <br><br>
+                <span class="warning-icon">💡</span> يمكنك لصق الأوردرات مباشرة من الواتساب. النظام سيتجاهل الأرقام وأسماء المرسلين تلقائياً
+            </div>
+            
+            <textarea id="ordersInput" placeholder="الصق الأوردرات المنسوخة من الواتساب هنا...
 
-مثال:
-الاسم : أحمد محمد
-المبلغ : 150 ج
-
-الاسم : فاطمة علي  
-المبلغ : 200 ج + 50 ج"></textarea>
+ملاحظة: النظام سيقوم تلقائياً بقراءة الأرقام وأسماء المرسلين والتركيز على نصوص الأوردرات فقط"></textarea>
+            
             <button onclick="saveOrders()">حفظ الأوردرات</button>
             <button class="clear-btn" onclick="clearData()">مسح جميع البيانات</button>
             <div id="message"></div>
         </div>
 
-        <div class="section">
-            <h2>التقرير</h2>
-            <button onclick="generateReport()">عرض التقرير</button>
+        <div class="section" id="report-section">
+            <h2>تقرير الأوردرات والإعلانات</h2>
+            <button class="report-btn" onclick="generateReport()">تحليل التقرير</button>
             <div id="report"></div>
         </div>
     </div>
@@ -209,7 +339,7 @@
 
         async function generateReport() {
             const reportDiv = document.getElementById("report");
-            reportDiv.innerHTML = '<div class="loading" style="padding: 15px; border-radius: 6px;">جاري إنشاء التقرير...</div>';
+            reportDiv.innerHTML = '<div class="loading" style="padding: 15px; border-radius: 10px;">جاري إنشاء التقرير...</div>';
 
             try {
                 const response = await fetch("/api/generate_report");
@@ -218,10 +348,10 @@
                 if (data.success) {
                     reportDiv.innerHTML = `<div class="report-content">${data.report}</div>`;
                 } else {
-                    reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 6px;">خطأ: ${data.error}</div>`;
+                    reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 10px;">خطأ: ${data.error}</div>`;
                 }
             } catch (error) {
-                reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 6px;">خطأ في الاتصال بالخادم: ${error.message}</div>`;
+                reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 10px;">خطأ في الاتصال بالخادم: ${error.message}</div>`;
             }
         }
 
