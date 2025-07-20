@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneLifeCare - نظام إدارة الأوردرات والتقارير</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            height: 60px;
+            width: auto;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-tab {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .nav-tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .nav-tab.active {
+            background: #4CAF50;
+            border-color: #4CAF50;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        select, textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            min-height: 200px;
+            resize: vertical;
+            line-height: 1.6;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 150px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 600;
+            text-align: center;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .report-content {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            white-space: pre-line;
+            line-height: 1.8;
+            font-size: 14px;
+            color: #333;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .help-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .nav-tabs {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="/static/logo.png" alt="OneLifeCare Logo" class="logo">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showPage('input-page')">إدخال الأوردرات</button>
+            <button class="nav-tab" onclick="showPage('report-page')">عرض التقرير</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Input Page -->
+        <div id="input-page" class="page active">
+            <h1>إدخال الأوردرات اليومية</h1>
+            
+            <div class="form-group">
+                <label for="teamSelect">اختر الفريق:</label>
+                <select id="teamSelect">
+                    <option value="Team A">تيم (A)</option>
+                    <option value="Team B">تيم (B)</option>
+                    <option value="Team C">تيم (C)</option>
+                    <option value="Team C1">تيم (C1)</option>
+                    <option value="Follow-up">تيم (فولو أب)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="orderText">الصق نصوص الأوردرات هنا:</label>
+                <textarea id="orderText" placeholder="الصق الأوردرات المنسوخة من الواتساب هنا...
+
+ملاحظة: النظام سيقوم تلقائياً بفلترة الأوقات وأسماء المرسلين والتركيز على نصوص الأوردرات فقط."></textarea>
+                <div class="help-text">
+                    💡 يمكنك نسخ الأوردرات مباشرة من الواتساب. النظام سيتجاهل الأوقات وأسماء المرسلين تلقائياً.
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="saveOrders()" class="btn-success">حفظ الأوردرات</button>
+            </div>
+
+            <div id="responseMessage" class="message"></div>
+        </div>
+
+        <!-- Report Page -->
+        <div id="report-page" class="page">
+            <h1>تقرير الأوردرات والإعلانات</h1>
+            
+            <div class="button-group">
+                <button onclick="loadReport()" class="btn-success">تحديث التقرير</button>
+                <button onclick="clearAllData()" class="btn-danger">مسح جميع البيانات</button>
+            </div>
+
+            <div id="reportContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل التقرير...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected page
+            document.getElementById(pageId).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            // Load report if report page is selected
+            if (pageId === 'report-page') {
+                loadReport();
+            }
+        }
+
+        async function saveOrders() {
+            const team = document.getElementById("teamSelect").value;
+            const orderText = document.getElementById("orderText").value.trim();
+            const responseMessage = document.getElementById("responseMessage");
+            
+            // Clear previous messages
+            responseMessage.style.display = "none";
+            responseMessage.className = "message";
+            
+            if (!team || !orderText) {
+                responseMessage.classList.add("error");
+                responseMessage.textContent = "يرجى اختيار الفريق وإدخال نصوص الأوردرات.";
+                responseMessage.style.display = "block";
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/save_orders", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ team: team, orders: orderText })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseMessage.classList.add("success");
+                    responseMessage.textContent = data.message;
+                    document.getElementById("orderText").value = ""; // Clear textarea on success
+                } else {
+                    responseMessage.classList.add("error");
+                    responseMessage.textContent = data.error || "حدث خطأ غير معروف.";
+                }
+            } catch (error) {
+                responseMessage.classList.add("error");
+                responseMessage.textContent = "حدث خطأ في الاتصال بالخادم: " + error.message;
+            }
+            responseMessage.style.display = "block";
+        }
+
+        async function clearAllData() {
+            if (!confirm("هل أنت متأكد من مسح جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه.")) {
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/clear_data", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert(data.message);
+                    // Reload the report to show cleared data
+                    loadReport();
+                } else {
+                    alert("خطأ في مسح البيانات: " + (data.error || "خطأ غير معروف"));
+                }
+            } catch (error) {
+                alert("خطأ في الاتصال بالخادم: " + error.message);
+            }
+        }
+
+        // Load report function
+        async function loadReport() {
+            const reportContainer = document.getElementById("reportContainer");
+            
+            // Show loading state
+            reportContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل التقرير...
+                </div>
+            `;
+
+            try {
+                const response = await fetch("/api/generate_report");
+                const data = await response.json();
+
+                if (response.ok) {
+                    reportContainer.innerHTML = `
+                        <div class="report-content">${data.report}</div>
+                    `;
+                } else {
+                    reportContainer.innerHTML = `
+                        <div class="message error" style="display: block;">
+                            خطأ في تحميل التقرير: ${data.error || "خطأ غير معروف"}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                reportContainer.innerHTML = `
+                    <div class="message error" style="display: block;">
+                        خطأ في الاتصال بالخادم: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Load report on page load if report page is active
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('report-page').classList.contains('active')) {
+                loadReport();
+            }
+        });
+    </script>
+</body>
+</html>
+

@@ -4,6 +4,8 @@ from datetime import datetime
 import pytz
 import sqlite3
 import re
+from facebook_business.api import FacebookAdsApi
+from facebook_business.adobjects.adaccount import AdAccount
 
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -80,17 +82,10 @@ def clear_data():
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء مسح البيانات: {str(e)}'}), 500
 
-def get_facebook_ads_data_simplified():
-    return {
-        "A": {"spend": 500, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "B": {"spend": 600, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "C": {"spend": 700, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "C1": {"spend": 800, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "Follow-up": {"spend": 400, "orders": 0, "held": 0, "sales": 0, "roas": 0}
-    }
 
-@app.route('/api/generate_report', methods=['GET'])
-def generate_report():
+
+@app.route("/api/generate_report", methods=["GET"])
+def generate_report_route():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -99,22 +94,7 @@ def generate_report():
         orders_by_team = dict(cursor.fetchall())
         
         conn.close()
-
-        facebook_data = get_facebook_ads_data_simplified()
-        
-        for team in facebook_data:
-            facebook_data[team]["orders"] = orders_by_team.get(team, 0)
-
-        for team_name, data in facebook_data.items():
-            if team_name != 'Follow-up':
-                data['sales'] = data['orders'] * 100
-                data['held'] = data['spend'] / data['orders'] if data['orders'] > 0 else 0
-                data['roas'] = data['sales'] / data['spend'] if data['spend'] > 0 else 0
-            else:
-                data['sales'] = data['orders'] * 80
-
-        report_text = format_detailed_report(facebook_data)
-        
+        report_text = generate_report_data_and_format()
         return jsonify({
             "success": True,
             "report": report_text,
@@ -125,33 +105,18 @@ def generate_report():
 
 def parse_orders(order_text):
     parsed_orders = []
-    order_blocks = re.split(r'(?:الاسم :|\n\s*\n)+', order_text)
-
-    for order_block in order_blocks:
-        order_block = order_block.strip()
-        if not order_block:
-            continue
-
-        name_match = re.search(r'الاسم :\s*(.+?)(?:\n|$)', order_block)
-        customer_name = name_match.group(1).strip() if name_match else "Unknown Customer"
-
-        amount_match = re.search(r'المبلغ :\s*([\d.,]+(?:\s*ج|م.ش)?)(?:\s*\+\s*([\d.,]+(?:\s*ج|م.ش)?))?', order_block)
-        amount = 0.0
-        if amount_match:
-            amount_str_part1 = amount_match.group(1).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
-            try:
-                amount = float(amount_str_part1)
-                if amount_match.group(2):
-                    amount_str_part2 = amount_match.group(2).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
-                    amount += float(amount_str_part2)
-            except ValueError:
-                print(f"Could not parse amount from: {amount_str_part1}")
-
-        if amount > 0:
-            parsed_orders.append({"customer_name": customer_name, "price": amount})
-        else:
-            print(f"Skipping order for {customer_name} due to invalid or missing amount.")
-
+    # Check if the input text is a WhatsApp chat export
+    if '[‏' in order_text and '~' in order_text:
+        individual_orders = parse_whatsapp_orders(order_text)
+        for individual_order in individual_orders:
+            sales_amount, _ = parse_order_text(individual_order)
+            if sales_amount > 0:
+                parsed_orders.append({"price": sales_amount})
+    else:
+        # Assume it's a single order if not a WhatsApp chat
+        sales_amount, _ = parse_order_text(order_text)
+        if sales_amount > 0:
+            parsed_orders.append({"price": sales_amount})
     return parsed_orders
 
 def format_detailed_report(data):
@@ -240,5 +205,307 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
     init_db()
     app.run(debug=False, host='0.0.0.0', port=port)
+
+
+
+
+
+# Functions from generate_report.py
+
+# Read Access Tokens from both Business Managers
+access_tokens = {}
+# Update path to reflect the new location
+with open("/app/facebook_access_tokens.txt", "r") as f:
+    for line in f:
+        line = line.strip()
+        if line and ": " in line:
+            business, token = line.split(": ", 1)
+            access_tokens[business] = token
+
+# Read Ad Account IDs and map them to Business Managers
+ad_account_mapping = {}
+# Update path to reflect the new location
+with open("/app/ad_account_ids.txt", "r") as f:
+    for line in f:
+        line = line.strip()
+        if line and ": " in line:
+            team, account_id = line.split(": ")
+            # Map teams to their respective Business Managers
+            # Business 1: Team A, B, C
+            # Business 2: Team C1
+            if team == "Team C1":
+                ad_account_mapping[team] = {"account_id": account_id, "business": "Business2"}
+            else:  # Teams A, B, C are in Business1
+                ad_account_mapping[team] = {"account_id": account_id, "business": "Business1"}
+
+def get_ad_spend_multi_business(team, start_time, end_time):
+    try:
+        if team not in ad_account_mapping:
+            print(f"Team {team} not found in mapping")
+            return 0
+            
+        account_info = ad_account_mapping[team]
+        account_id = account_info["account_id"]
+        business = account_info["business"]
+        
+        if business not in access_tokens:
+            print(f"Access token for {business} not found")
+            return 0
+            
+        # Initialize Facebook API with the appropriate token
+        FacebookAdsApi.init(access_token=access_tokens[business])
+        
+        account = AdAccount(account_id)
+        params = {
+            "time_range": {
+                "since": start_time.strftime("%Y-%m-%d"),
+                "until": end_time.strftime("%Y-%m-%d")
+            },
+            "time_increment": 1,
+            "fields": ["spend"]
+        }
+        insights = account.get_insights(params=params)
+        total_spend = 0
+        for insight in insights:
+            total_spend += float(insight["spend"])
+        return total_spend
+    except Exception as e:
+        print(f"Error fetching spend for {team} ({account_id}): {e}")
+        return 0
+
+def parse_whatsapp_orders(whatsapp_text):
+    """
+    Parse WhatsApp text containing multiple orders separated by timestamps and sender names
+    """
+    orders = []
+    
+    # Split by WhatsApp timestamp pattern [date, time] ~ sender:
+    # Pattern: [‏17‏/7‏/2025، 12:37:42 ص] ~ sender name:
+    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:
+"
+    
+    # Split the text by timestamps
+    order_blocks = re.split(timestamp_pattern, whatsapp_text)
+    
+    # Remove empty blocks and process each order
+    for block in order_blocks:
+        block = block.strip()
+        if block and len(block) > 50:  # Filter out very short blocks
+            # Clean up the block by removing WhatsApp editing markers
+            block = re.sub(r"\u200f<تم تعديل هذه الرسالة>", "", block)
+            orders.append(block)
+    
+    return orders
+
+def parse_order_text(order_text):
+    """
+    Parse individual order text to extract sales amount and agent name
+    """
+    sales_amount = 0
+    agent_name = ""
+    
+    # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
+    amount_patterns = [
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",  # Pattern with م.ش
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",         # Pattern with +
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",   # Pattern with شحن
+        r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
+    ]
+    
+    for pattern in amount_patterns:
+        amount_match = re.search(pattern, order_text)
+        if amount_match:
+            product_price = float(amount_match.group(1).replace(",", ""))
+            sales_amount = product_price  # Sales excluding shipping
+            break
+
+    # Extract \'الايچينت\' or \'الايچينت :\'
+    agent_patterns = [
+        r"الايچينت\s*:\s*(.+?)(?:\n|$)",
+        r"الايچينت\s*:\s*(.+?)(?:\s|$)"
+    ]
+    
+    for pattern in agent_patterns:
+        agent_match = re.search(pattern, order_text)
+        if agent_match:
+            agent_name = agent_match.group(1).strip()
+            # Clean up agent name
+            agent_name = re.sub(r"\u200f<تم تعديل هذه الرسالة>", "", agent_name)
+            break
+        
+    return sales_amount, agent_name
+
+
+
+
+
+
+
+def generate_report_data_and_format():
+    # Define time range (today from midnight) in Egypt timezone
+    egypt_tz = pytz.timezone('Africa/Cairo')
+    now = datetime.now(egypt_tz)
+    start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_time = now
+
+    # Fetch spend for each team using multi-business approach
+    ad_spend_data = {}
+    for team in ["Team A", "Team B", "Team C", "Team C1"]:
+        spend = get_ad_spend_multi_business(team, start_time, end_time)
+        ad_spend_data[team] = spend
+
+    # Process order texts to get sales and order counts
+    team_sales_data = {
+        'Team A': {'orders': 0, 'sales': 0},
+        'Team B': {'orders': 0, 'sales': 0},
+        'Team C': {'orders': 0, 'sales': 0},
+        'Team C1': {'orders': 0, 'sales': 0},
+        'Team Follow-up': {'orders': 0, 'sales': 0}
+    }
+
+    # Load orders from database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT team, SUM(order_count) FROM orders GROUP BY team")
+    db_orders = cursor.fetchall()
+    conn.close()
+
+    for team, count in db_orders:
+        if team in team_sales_data:
+            team_sales_data[team]["orders"] += count
+            # Assuming a fixed sales value per order for now, adjust as needed
+            if team == "Follow-up":
+                team_sales_data[team]["sales"] += count * 80 # Example value
+            else:
+                team_sales_data[team]["sales"] += count * 100 # Example value
+
+    # Generate report in the requested format with Egypt timezone and date
+    report_date = now.strftime("%Y/%m/%d")
+    report_time = now.strftime("%I:%M %p")
+    report = f"* صرف يوم {report_date} الساعه {report_time}\n"
+    report += " ---------------------------------\n"
+
+    # Individual team reports and overall totals
+    team_reports = []
+    total_spend_ab = 0
+    total_orders_ab = 0
+    total_sales_ab = 0
+
+    total_spend_cc1 = 0
+    total_orders_cc1 = 0
+    total_sales_cc1 = 0
+
+    overall_total_spend = 0
+    overall_total_orders = 0
+    overall_total_sales = 0
+
+    teams_to_report = ["Team A", "Team B", "Team C", "Team C1"]
+
+    for team in teams_to_report:
+        spend = ad_spend_data.get(team, 0)
+        orders = team_sales_data.get(team, {}).get('orders', 0)
+        sales = team_sales_data.get(team, {}).get('sales', 0)
+
+        # Calculate "ممسوك" (Cost Per Order)
+        cost_per_order = spend / orders if orders > 0 else 0
+
+        # Calculate ROAS
+        roas = sales / spend if spend > 0 else 0
+
+        # Format team name for display
+        team_display = team.replace("Team ", "تيم ")
+        if team == "Team C1":
+            team_display = "تيم (C1)"
+        elif team == "Team C":
+            team_display = "تيم (C)"
+        elif team == "Team B":
+            team_display = "تيم (B)"
+        elif team == "Team A":
+            team_display = "تيم (A)"
+
+        team_report = f"{team_display}\n"
+        team_report += f"الصرف :/ {spend:,.0f}\n"
+        team_report += f"عدد الاوردرات / {orders}\n"
+        team_report += f"ممسوك : / {cost_per_order:,.0f}\n"
+        team_report += f"المبيعات (غير شاملة الشحن) :/ {sales:,.0f}\n"
+        team_report += f"ROAS :/ {roas:.2f}\n"
+        team_report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
+
+        team_reports.append(team_report)
+
+        # Calculate totals for A+B
+        if team in ["Team A", "Team B"]:
+            total_spend_ab += spend
+            total_orders_ab += orders
+            total_sales_ab += sales
+
+        # Calculate totals for C+C1
+        if team in ["Team C", "Team C1"]:
+            total_spend_cc1 += spend
+            total_orders_cc1 += orders
+            total_sales_cc1 += sales
+
+        # Calculate overall totals
+        overall_total_spend += spend
+        overall_total_orders += orders
+        overall_total_sales += sales
+
+    # Add team reports to main report
+    for team_report in team_reports:
+        report += team_report
+
+    # Add Follow-up team (assuming no spend for follow-up)
+    follow_up_orders = team_sales_data.get("Team Follow-up", {}).get('orders', 0)
+    follow_up_sales = team_sales_data.get("Team Follow-up", {}).get('sales', 0)
+    if follow_up_orders > 0:
+        report += f"تيم (فولو أب)\n"
+        report += f"عدد الاوردرات:/ {follow_up_orders}\n"
+        report += f"المبيعات (غير شاملة الشحن) :/ {follow_up_sales:,.0f}\n"
+        report += "  ________________\n"
+        overall_total_orders += follow_up_orders
+        overall_total_sales += follow_up_sales
+
+    # Add totals section for A+B
+    if total_orders_ab > 0:
+        total_cost_per_order_ab = total_spend_ab / total_orders_ab
+    else:
+        total_cost_per_order_ab = 0
+
+    report += "________👇اجماليات 👇_____\n"
+    report += "(A) + (B)\n"
+    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_ab:,.0f}\n"
+    report += f"إجمالي عام اوردات :/ {total_orders_ab}\n"
+    report += f"ممسوك / {total_cost_per_order_ab:,.0f}\n"
+    report += f"إجمالي المبيعات (A+B) :/ {total_sales_ab:,.0f}\n"
+    roas_ab = total_sales_ab / total_spend_ab if total_spend_ab > 0 else 0
+    report += f"ROAS (A+B) :/ {roas_ab:.2f}\n"
+
+    # Add totals section for C+C1
+    if total_orders_cc1 > 0:
+        total_cost_per_order_cc1 = total_spend_cc1 / total_orders_cc1
+    else:
+        total_cost_per_order_cc1 = 0
+
+    report += "\n(C) + (C1)\n"
+    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_cc1:,.0f}\n"
+    report += f"إجمالي عام اوردات :/ {total_orders_cc1}\n"
+    report += f"ممسوك / {total_cost_per_order_cc1:,.0f}\n"
+    report += f"إجمالي المبيعات (C+C1) :/ {total_sales_cc1:,.0f}\n"
+    roas_cc1 = total_sales_cc1 / total_spend_cc1 if total_spend_cc1 > 0 else 0
+    report += f"ROAS (C+C1) :/ {roas_cc1:.2f}\n"
+
+    # Add overall totals
+    overall_cost_per_order = overall_total_spend / overall_total_orders if overall_total_orders > 0 else 0
+    overall_roas = overall_total_sales / overall_total_spend if overall_total_spend > 0 else 0
+
+    report += "\n________👇اجماليات عامة 👇_____\n"
+    report += f"إجمالي الصرف الكلي :/ {overall_total_spend:,.0f}\n"
+    report += f"إجمالي الأوردرات الكلي :/ {overall_total_orders}\n"
+    report += f"متوسط ممسوك الكلي :/ {overall_cost_per_order:,.0f}\n"
+    report += f"إجمالي المبيعات الكلي :/ {overall_total_sales:,.0f}\n"
+    report += f"ROAS الكلي :/ {overall_roas:.2f}\n"
+
+    return report
+
 
 
