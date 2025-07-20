@@ -123,7 +123,7 @@ def format_detailed_report(data):
     cairo_tz = pytz.timezone('Africa/Cairo')
     now = datetime.now(cairo_tz)
     
-    report = f"تاريخ التقرير: {now.strftime("%Y-%m-%d")}\n"
+    report = f"تاريخ التقرير: {now.strftime('%Y-%m-%d')}\n"
     report += f"الوقت: {now.strftime("%I:%M %p")}\n"
     report += "===================\n\n"
     
