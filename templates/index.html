@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneLifeCare Order Management</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .container { max-width: 800px; margin: auto; background: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        textarea { width: 100%; height: 150px; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #message { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        #report { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .team-report { margin-bottom: 10px; padding: 10px; background: #e9ecef; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OneLifeCare Order Management</h1>
+
+        <h2>Save Orders</h2>
+        <label for="teamName">Team Name:</label>
+        <input type="text" id="teamName" placeholder="e.g., Team A">
+        <textarea id="ordersInput" placeholder="Enter orders here, one per line or separated by newlines."></textarea>
+        <button onclick="saveOrders()">Save Orders</button>
+        <div id="message"></div>
+
+        <h2>Report</h2>
+        <button onclick="getReport()">View Report</button>
+        <div id="report"></div>
+    </div>
+
+    <script>
+        async function saveOrders() {
+            const teamName = document.getElementById("teamName").value;
+            const orders = document.getElementById("ordersInput").value;
+            const messageDiv = document.getElementById("message");
+
+            if (!teamName || !orders) {
+                messageDiv.textContent = "Please enter both team name and orders.";
+                messageDiv.style.backgroundColor = "#f8d7da";
+                messageDiv.style.color = "#721c24";
+                return;
+            }
+
+            try {
+                const response = await fetch("/save_orders", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ team: teamName, orders: orders }),
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    messageDiv.textContent = data.message;
+                    messageDiv.style.backgroundColor = "#d4edda";
+                    messageDiv.style.color = "#155724";
+                    document.getElementById("ordersInput").value = ""; // Clear input
+                } else {
+                    messageDiv.textContent = `Error: ${data.message}`;
+                    messageDiv.style.backgroundColor = "#f8d7da";
+                    messageDiv.style.color = "#721c24";
+                }
+            } catch (error) {
+                messageDiv.textContent = `Error connecting to server: ${error.message}`;
+                messageDiv.style.backgroundColor = "#f8d7da";
+                messageDiv.style.color = "#721c24";
+            }
+        }
+
+        async function getReport() {
+            const reportDiv = document.getElementById("report");
+            reportDiv.innerHTML = "Loading report...";
+
+            try {
+                const response = await fetch("/get_report");
+                const data = await response.json();
+
+                if (data.success) {
+                    let reportHtml = `<h3>Total Orders: ${data.total_orders}</h3>`;
+                    reportHtml += `<h3>Total Sales: ${data.total_sales.toFixed(2)}</h3>`;
+
+                    for (const team in data.report_summary) {
+                        const summary = data.report_summary[team];
+                        reportHtml += `<div class="team-report">`;
+                        reportHtml += `<h4>Team: ${team}</h4>`;
+                        reportHtml += `<p>Orders: ${summary.order_count}</p>`;
+                        reportHtml += `<p>Sales: ${summary.total_sales.toFixed(2)}</p>`;
+                        reportHtml += `</div>`;
+                    }
+                    reportDiv.innerHTML = reportHtml;
+                } else {
+                    reportDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                reportDiv.innerHTML = `<p style="color: red;">Error connecting to server: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
+
+
