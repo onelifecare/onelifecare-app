@@ -1,108 +1,236 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OneLifeCare Order Management</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; }
-        .container { max-width: 800px; margin: auto; background: #f9f9f9; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 150px; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        #message { margin-top: 10px; padding: 10px; border-radius: 4px; }
-        #report { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-        .team-report { margin-bottom: 10px; padding: 10px; background: #e9ecef; border-radius: 4px; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5;
+            direction: rtl;
+        }
+        h1 { 
+            color: #2c3e50; 
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container { 
+            max-width: 900px; 
+            margin: auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            color: #34495e;
+            margin-top: 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        textarea { 
+            width: 100%; 
+            height: 200px; 
+            margin-bottom: 15px; 
+            padding: 15px; 
+            border: 2px solid #bdc3c7; 
+            border-radius: 6px; 
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        input[type="text"] { 
+            width: calc(100% - 32px); 
+            padding: 12px 15px; 
+            margin-bottom: 15px; 
+            border: 2px solid #bdc3c7; 
+            border-radius: 6px; 
+            font-size: 16px;
+        }
+        button { 
+            padding: 12px 25px; 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px;
+            margin-left: 10px;
+            transition: background-color 0.3s;
+        }
+        button:hover { 
+            background: #2980b9; 
+        }
+        .clear-btn {
+            background: #e74c3c;
+        }
+        .clear-btn:hover {
+            background: #c0392b;
+        }
+        #message { 
+            margin-top: 15px; 
+            padding: 15px; 
+            border-radius: 6px; 
+            font-weight: bold;
+        }
+        #report { 
+            margin-top: 20px; 
+            border-top: 2px solid #ecf0f1; 
+            padding-top: 20px; 
+        }
+        .report-content {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-line;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .success { 
+            background-color: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>OneLifeCare Order Management</h1>
+        <h1>نظام إدارة أوردرات OneLifeCare</h1>
 
-        <h2>Save Orders</h2>
-        <label for="teamName">Team Name:</label>
-        <input type="text" id="teamName" placeholder="e.g., Team A">
-        <textarea id="ordersInput" placeholder="Enter orders here, one per line or separated by newlines."></textarea>
-        <button onclick="saveOrders()">Save Orders</button>
-        <div id="message"></div>
+        <div class="section">
+            <h2>حفظ الأوردرات</h2>
+            <label for="teamName">اسم الفريق:</label>
+            <input type="text" id="teamName" placeholder="مثال: A, B, C, C1, Follow-up">
+            <textarea id="ordersInput" placeholder="أدخل الأوردرات هنا، كل أوردر في سطر منفصل أو مفصولة بأسطر جديدة.
 
-        <h2>Report</h2>
-        <button onclick="getReport()">View Report</button>
-        <div id="report"></div>
+مثال:
+الاسم : أحمد محمد
+المبلغ : 150 ج
+
+الاسم : فاطمة علي  
+المبلغ : 200 ج + 50 ج"></textarea>
+            <button onclick="saveOrders()">حفظ الأوردرات</button>
+            <button class="clear-btn" onclick="clearData()">مسح جميع البيانات</button>
+            <div id="message"></div>
+        </div>
+
+        <div class="section">
+            <h2>التقرير</h2>
+            <button onclick="generateReport()">عرض التقرير</button>
+            <div id="report"></div>
+        </div>
     </div>
 
     <script>
         async function saveOrders() {
-            const teamName = document.getElementById("teamName").value;
-            const orders = document.getElementById("ordersInput").value;
+            const teamName = document.getElementById("teamName").value.trim();
+            const orders = document.getElementById("ordersInput").value.trim();
             const messageDiv = document.getElementById("message");
 
             if (!teamName || !orders) {
-                messageDiv.textContent = "Please enter both team name and orders.";
-                messageDiv.style.backgroundColor = "#f8d7da";
-                messageDiv.style.color = "#721c24";
+                showMessage("الرجاء إدخال اسم الفريق والأوردرات.", "error");
                 return;
             }
 
+            showMessage("جاري حفظ الأوردرات...", "loading");
+
             try {
-                const response = await fetch("/save_orders", {
+                const response = await fetch("/api/save_orders", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ team: teamName, orders: orders }),
                 });
+                
                 const data = await response.json();
 
-                if (data.success) {
-                    messageDiv.textContent = data.message;
-                    messageDiv.style.backgroundColor = "#d4edda";
-                    messageDiv.style.color = "#155724";
-                    document.getElementById("ordersInput").value = ""; // Clear input
+                if (response.ok) {
+                    showMessage(data.message, "success");
+                    document.getElementById("ordersInput").value = "";
                 } else {
-                    messageDiv.textContent = `Error: ${data.message}`;
-                    messageDiv.style.backgroundColor = "#f8d7da";
-                    messageDiv.style.color = "#721c24";
+                    showMessage(`خطأ: ${data.error}`, "error");
                 }
             } catch (error) {
-                messageDiv.textContent = `Error connecting to server: ${error.message}`;
-                messageDiv.style.backgroundColor = "#f8d7da";
-                messageDiv.style.color = "#721c24";
+                showMessage(`خطأ في الاتصال بالخادم: ${error.message}`, "error");
             }
         }
 
-        async function getReport() {
-            const reportDiv = document.getElementById("report");
-            reportDiv.innerHTML = "Loading report...";
+        async function clearData() {
+            if (!confirm("هل أنت متأكد من مسح جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه.")) {
+                return;
+            }
+
+            showMessage("جاري مسح البيانات...", "loading");
 
             try {
-                const response = await fetch("/get_report");
+                const response = await fetch("/api/clear_data", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    }
+                });
+                
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(data.message, "success");
+                    document.getElementById("report").innerHTML = "";
+                } else {
+                    showMessage(`خطأ: ${data.error}`, "error");
+                }
+            } catch (error) {
+                showMessage(`خطأ في الاتصال بالخادم: ${error.message}`, "error");
+            }
+        }
+
+        async function generateReport() {
+            const reportDiv = document.getElementById("report");
+            reportDiv.innerHTML = '<div class="loading" style="padding: 15px; border-radius: 6px;">جاري إنشاء التقرير...</div>';
+
+            try {
+                const response = await fetch("/api/generate_report");
                 const data = await response.json();
 
                 if (data.success) {
-                    let reportHtml = `<h3>Total Orders: ${data.total_orders}</h3>`;
-                    reportHtml += `<h3>Total Sales: ${data.total_sales.toFixed(2)}</h3>`;
-
-                    for (const team in data.report_summary) {
-                        const summary = data.report_summary[team];
-                        reportHtml += `<div class="team-report">`;
-                        reportHtml += `<h4>Team: ${team}</h4>`;
-                        reportHtml += `<p>Orders: ${summary.order_count}</p>`;
-                        reportHtml += `<p>Sales: ${summary.total_sales.toFixed(2)}</p>`;
-                        reportHtml += `</div>`;
-                    }
-                    reportDiv.innerHTML = reportHtml;
+                    reportDiv.innerHTML = `<div class="report-content">${data.report}</div>`;
                 } else {
-                    reportDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+                    reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 6px;">خطأ: ${data.error}</div>`;
                 }
             } catch (error) {
-                reportDiv.innerHTML = `<p style="color: red;">Error connecting to server: ${error.message}</p>`;
+                reportDiv.innerHTML = `<div class="error" style="padding: 15px; border-radius: 6px;">خطأ في الاتصال بالخادم: ${error.message}</div>`;
             }
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById("message");
+            messageDiv.textContent = message;
+            messageDiv.className = type;
         }
     </script>
 </body>
 </html>
-
 
