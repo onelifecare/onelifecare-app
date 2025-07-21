@@ -186,8 +186,8 @@ def format_detailed_report(data):
     now = datetime.now(cairo_tz)
     
     # إضافة التاريخ والوقت في أعلى التقرير مع فاصل أقصر
-    report = f"تاريخ التقرير: {now.strftime("%Y-%m-%d")}\n"
-    report += f"الوقت: {now.strftime("%I:%M %p")}\n"
+    report = f'تاريخ التقرير: {now.strftime("%Y-%m-%d")}\n'
+    report += f'الوقت: {now.strftime("%I:%M %p")}\n'
     report += "===================\n\n"
     
     # تفاصيل كل فريق
