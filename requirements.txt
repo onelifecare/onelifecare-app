@@ -16,3 +16,6 @@ pytz
 gunicorn
 
 
+
+whitenoise
+
