@@ -4,7 +4,9 @@ from datetime import datetime
 import pytz
 import sqlite3
 import re
-# import requests # Commented out for now, as Facebook API integration is simplified
+import requests
+from facebook_business.api import FacebookAdsApi
+from facebook_business.adobjects.adaccount import AdAccount
 
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -92,16 +94,44 @@ def clear_data():
         return jsonify({'error': f'حدث خطأ أثناء مسح البيانات: {str(e)}'}), 500
 
 # Simplified Facebook Ads data for now
-def get_facebook_ads_data_simplified():
-    # This is a placeholder. In a real scenario, this would fetch data from Facebook Ads API
-    # For now, it uses dummy data or returns 0 if not found
-    return {
-        "A": {"spend": 500, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "B": {"spend": 600, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "C": {"spend": 700, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "C1": {"spend": 800, "orders": 0, "held": 0, "sales": 0, "roas": 0},
-        "Follow-up": {"spend": 400, "orders": 0, "held": 0, "sales": 0, "roas": 0}
+FACEBOOK_ACCESS_TOKENS = {
+    "Business1": "EAASZBgi6n4ZBgBPBvioC4SYDaReePUfCbcChadEzfUlXsMSEyNq962bES561E0Bs2Wzx9DhmwZBOn0jrR3lLLm4eohK03dlOikOJhRz0Xx7JJez09JGz74ixXUD6ZAhvNbB5BJBjTe9I9WFM83JGYny9VbOOekQ5j6LDrRpSq2clD23olgqVY2KIpLykGZAbAfwZDZD",
+    "Business2": "EAASZBgi6n4ZBgBPHZB5ZCSPS9AXmAS8RHkph8QDpt92XwZA5mViDxopaoWZCZAaCtAWeK0S21txkxuyXgqZCoAHv6HLA24bqJ69ZAC130RZBEZAJQq2ZAkP3kTTg3mJrSxVYmBtQRq3ZCYZBh80OlBWkeuGY0lFvZCYSsJckfBZAMNaZCyks8oRO6w9C2sKzwdXcbS0MyrMjuaQZDZD"
+}
+
+AD_ACCOUNT_IDS = {
+    "A": "act_876940394061784",
+    "B": "act_1063536228108993",
+    "C": "act_1256754798336209",
+    "C1": "act_652648836844418"
+}
+
+def get_facebook_ads_data():
+    data = {
+        "A": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
+        "B": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
+        "C": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
+        "C1": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
+        "Follow-up": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0}
     }
+
+    for team, ad_account_id in AD_ACCOUNT_IDS.items():
+        # Use a generic access token for now, ideally map to specific business
+        access_token = FACEBOOK_ACCESS_TOKENS["Business1"] # Or dynamically select based on team
+        FacebookAdsApi.init(access_token=access_token)
+        
+        try:
+            account = AdAccount(ad_account_id)
+            # Fetch insights for today
+            insights = account.get_insights(fields=["spend"], params={
+                "time_range": {"since": datetime.now().strftime("%Y-%m-%d"), "until": datetime.now().strftime("%Y-%m-%d")}
+            })
+            if insights:
+                data[team]["spend"] = float(insights[0]["spend"])
+        except Exception as e:
+            print(f"Error fetching data for {team} ({ad_account_id}): {e}")
+
+    return data
 
 @app.route('/api/generate_report', methods=['GET'])
 def generate_report():
@@ -116,7 +146,7 @@ def generate_report():
         conn.close()
 
         # Get simplified Facebook Ads data
-        facebook_data = get_facebook_ads_data_simplified()
+        facebook_data = get_facebook_ads_data()
         
         # Update facebook_data with actual orders from DB
         for team in facebook_data:
