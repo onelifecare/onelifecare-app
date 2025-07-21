@@ -9,9 +9,14 @@ import re
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
 
+from whitenoise import WhiteNoise
+
 app = Flask(__name__,
             static_folder=os.path.join(basedir, 'static'),
             template_folder=os.path.join(basedir, 'templates'))
+
+app.wsgi_app = WhiteNoise(app.wsgi_app, root=os.path.join(basedir, 'static'))
+app.wsgi_app.add_files(os.path.join(basedir, 'templates'), prefix='templates/')
 
 def get_db_path():
     """الحصول على المسار المطلق لقاعدة البيانات في مجلد tmp"""
