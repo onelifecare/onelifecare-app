@@ -1,31 +1,21 @@
 import os
-import sys
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from datetime import datetime
 import pytz
 import sqlite3
 import re
+# import requests # Commented out for now, as Facebook API integration is simplified
 
-# DON\'T CHANGE THIS !!!
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-from src.models.user import db
-from src.routes.user import user_bp
-from src.routes.order import order_bp, parse_order_text_with_chatgpt, parse_order_text_fallback
-
+# Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__,
             static_folder=os.path.join(basedir, 'static'),
-            template_folder=os.path.join(basedir, 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+            template_folder=os.path.join(basedir, 'static')) # Assuming index.html is in static
 
-app.register_blueprint(user_bp, url_prefix='/api')
-app.register_blueprint(order_bp, url_prefix='/api')
-
-# Database setup
 def get_db_path():
-    return os.path.join(basedir, 'orders.db')
+    """الحصول على المسار المطلق لقاعدة البيانات في مجلد tmp"""
+    return os.path.join(basedir, 'orders.db') # Changed to be in the same directory as the app
 
 def init_db():
     conn = sqlite3.connect(get_db_path())
@@ -43,12 +33,13 @@ def init_db():
     conn.close()
 
 def get_db_connection():
+    """الحصول على اتصال بقاعدة البيانات مع التأكد من وجود الجداول"""
     init_db()
     return sqlite3.connect(get_db_path())
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html') # Changed to render_template as index.html is in templates folder
 
 @app.route('/api/save_orders', methods=['POST'])
 def save_orders():
@@ -60,21 +51,26 @@ def save_orders():
         if not team or not orders_text.strip():
             return jsonify({'error': 'الرجاء اختيار الفريق وإدخال نصوص الأوردرات.'}), 400
 
-        # Use the parsing logic from order.py
-        total_amount, order_count = parse_order_text_with_chatgpt(orders_text)
-        if order_count == 0:
-            total_amount, order_count = parse_order_text_fallback(orders_text)
-
+        parsed_orders = parse_orders(orders_text)
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        if order_count > 0:
-            cursor.execute('INSERT INTO orders (team, order_count) VALUES (?, ?)', (team, order_count))
+        # Aggregate orders by team from parsed_orders
+        team_order_counts = {}
+        for order in parsed_orders:
+            # Assuming the team is passed from the frontend and is consistent for the batch
+            # If individual orders can have different teams, this logic needs adjustment
+            team_order_counts[team] = team_order_counts.get(team, 0) + 1
+
+        for team_name, count in team_order_counts.items():
+            if count > 0:
+                cursor.execute('INSERT INTO orders (team, order_count) VALUES (?, ?)', (team_name, count))
         
         conn.commit()
         conn.close()
         
-        return jsonify({'message': f'تم حفظ {order_count} أوردرات بنجاح!', 'orders_saved': order_count}), 200
+        return jsonify({'message': f'تم حفظ {len(parsed_orders)} أوردرات بنجاح!', 'orders_saved': len(parsed_orders)}), 200
     except Exception as e:
         return jsonify({'error': f'حدث خطأ: {str(e)}'}), 500
 
@@ -90,7 +86,10 @@ def clear_data():
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء مسح البيانات: {str(e)}'}), 500
 
+# Simplified Facebook Ads data for now
 def get_facebook_ads_data_simplified():
+    # This is a placeholder. In a real scenario, this would fetch data from Facebook Ads API
+    # For now, it uses dummy data or returns 0 if not found
     return {
         "A": {"spend": 500, "orders": 0, "held": 0, "sales": 0, "roas": 0},
         "B": {"spend": 600, "orders": 0, "held": 0, "sales": 0, "roas": 0},
@@ -105,24 +104,31 @@ def generate_report():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # جلب إجمالي الأوردرات لكل فريق
         cursor.execute('SELECT team, SUM(order_count) FROM orders GROUP BY team ORDER BY team')
         orders_by_team = dict(cursor.fetchall())
         
         conn.close()
 
+        # Get simplified Facebook Ads data
         facebook_data = get_facebook_ads_data_simplified()
         
+        # Update facebook_data with actual orders from DB
         for team in facebook_data:
             facebook_data[team]["orders"] = orders_by_team.get(team, 0)
 
+        # Calculate sales and held based on orders and dummy spend
         for team_name, data in facebook_data.items():
+            # Assuming an average sale value per order for simplification
+            # This needs to be adjusted based on actual business logic
             if team_name != 'Follow-up':
-                data['sales'] = data['orders'] * 100
+                data['sales'] = data['orders'] * 100 # Example: 100 JOD per order
                 data['held'] = data['spend'] / data['orders'] if data['orders'] > 0 else 0
                 data['roas'] = data['sales'] / data['spend'] if data['spend'] > 0 else 0
             else:
-                data['sales'] = data['orders'] * 80
+                data['sales'] = data['orders'] * 80 # Example: 80 JOD per order for follow-up
 
+        # تنسيق التقرير
         report_text = format_detailed_report(facebook_data)
         
         return jsonify({
@@ -133,14 +139,53 @@ def generate_report():
     except Exception as e:
         return jsonify({"success": False, "error": f"حدث خطأ: {str(e)}"}), 500
 
+def parse_orders(order_text):
+    parsed_orders = []
+    # Split the input text into potential order blocks based on common separators
+    # This regex looks for 'الاسم :' or multiple newlines as separators
+    order_blocks = re.split(r'(?:الاسم :|\n\s*\n)+', order_text)
+
+    for order_block in order_blocks:
+        order_block = order_block.strip()
+        if not order_block:
+            continue
+
+        # Extract 'الاسم' (Name)
+        name_match = re.search(r'الاسم :\s*(.+?)(?:\n|$)', order_block)
+        customer_name = name_match.group(1).strip() if name_match else "Unknown Customer"
+
+        # Extract 'المبلغ' (Amount)
+        # This regex now correctly handles 'ج' or 'م.ش' and optional '+' for multiple amounts
+        amount_match = re.search(r'المبلغ :\s*([\d.,]+(?:\s*ج|م.ش)?)(?:\s*\+\s*([\d.,]+(?:\s*ج|م.ش)?))?', order_block)
+        amount = 0.0
+        if amount_match:
+            amount_str_part1 = amount_match.group(1).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
+            try:
+                amount = float(amount_str_part1)
+                if amount_match.group(2):
+                    amount_str_part2 = amount_match.group(2).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
+                    amount += float(amount_str_part2)
+            except ValueError:
+                print(f"Could not parse amount from: {amount_str_part1}")
+
+        if amount > 0:
+            parsed_orders.append({"customer_name": customer_name, "price": amount})
+        else:
+            print(f"Skipping order for {customer_name} due to invalid or missing amount.")
+
+    return parsed_orders
+
 def format_detailed_report(data):
+    """تنسيق التقرير المفصل حسب المثال المعطى"""
     cairo_tz = pytz.timezone('Africa/Cairo')
     now = datetime.now(cairo_tz)
     
+    # إضافة التاريخ والوقت في أعلى التقرير مع فاصل أقصر
     report = f"تاريخ التقرير: {now.strftime("%Y-%m-%d")}\n"
     report += f"الوقت: {now.strftime("%I:%M %p")}\n"
     report += "===================\n\n"
     
+    # تفاصيل كل فريق
     teams = ['A', 'B', 'C', 'C1', 'Follow-up']
     
     for team in teams:
@@ -165,6 +210,7 @@ def format_detailed_report(data):
             report += f"المبيعات (غير شاملة الشحن) :/ {team_data['sales']:,} ج\n"
 
     
+    # إجماليات A + B
     a_data = data['A']
     b_data = data['B']
     
@@ -182,6 +228,7 @@ def format_detailed_report(data):
     report += f"إجمالي المبيعات (A+B) :/ {ab_sales:,} ج\n"
     report += f"ROAS (A+B) :/ {ab_roas:.2f}\n\n"
     
+    # إجماليات C + C1
     c_data = data['C']
     c1_data = data['C1']
 
@@ -199,6 +246,7 @@ def format_detailed_report(data):
     report += f"إجمالي المبيعات (C+C1) :/ {cc1_sales:,} ج\n"
     report += f"ROAS (C+C1) :/ {cc1_roas:.2f}\n\n"
 
+    # إجماليات عامة
     total_spend = sum(team_data['spend'] for team_data in data.values() if team_data['spend'] is not None)
     total_orders = sum(team_data['orders'] for team_data in data.values() if team_data['orders'] is not None)
     total_sales = sum(team_data['sales'] for team_data in data.values() if team_data['sales'] is not None)

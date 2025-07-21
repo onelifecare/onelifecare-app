@@ -1,84 +1,84 @@
-from flask import Blueprint, request, jsonify
+import os
 import re
-import openai
+import json
+from flask import Blueprint, request, jsonify
+from src.models.order import Order
+from src.models.user import db
+from openai import OpenAI
 
 order_bp = Blueprint("order", __name__)
 
-# Fallback parsing function (if ChatGPT fails or is not used)
-def parse_order_text_fallback(text):
-    total_amount = 0
+# Initialize OpenAI client
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), base_url=os.environ.get("OPENAI_API_BASE"))
+
+def parse_order_text_with_chatgpt(order_text):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",  # Using gpt-4o as discussed
+            messages=[
+                {"role": "system", "content": "You are an order parsing assistant. Extract the total amount (including shipping) and the number of orders from the given text. If multiple orders are present, sum their amounts and count them. Respond only with a JSON object like: {\"total_amount\": float, \"order_count\": int}. If no amount is found, return 0 for total_amount. If no orders are found, return 0 for order_count."},
+                {"role": "user", "content": order_text}
+            ],
+            response_format={"type": "json_object"}
+        )
+        parsed_data = response.choices[0].message.content
+        data = json.loads(parsed_data)
+        return data.get("total_amount", 0.0), data.get("order_count", 0)
+    except Exception as e:
+        print(f"Error parsing with ChatGPT: {e}")
+        return 0.0, 0
+
+def parse_order_text_fallback(order_text):
+    total_amount = 0.0
     order_count = 0
 
-    # Regex to find numbers that could be order counts or amounts
-    # This is a very basic fallback and might need refinement
-    numbers = re.findall(r'\d+', text)
+    # البحث عن الطوابع الزمنية لعد الأوردرات
+    timestamp_pattern = r"\n\[\d{1,2}/\d{1,2}, \d{1,2}:\d{2}\s*[AP]M\]"
+    orders = re.split(timestamp_pattern, order_text)
+    # أول عنصر في القائمة سيكون ما قبل أول طابع زمني، لذا نتجاهله
+    order_count = len(orders) - 1
     
-    # Assuming each number found could represent an order or an amount
-    # This logic needs to be improved based on actual order text patterns
-    order_count = len(numbers) # Simplistic: count every number as an order
-    if numbers:
-        total_amount = sum(int(n) for n in numbers) # Simplistic: sum all numbers as amount
+    # البحث عن المبالغ
+    amount_patterns = [
+        r"المبلغ\s*:\s*(\d+)\s*\+\s*(\d+)",  # المبلغ : 1190 + 65
+        r"المبلغ\s*:\s*(\d+)\s*\+\s*(\d+)\s*شحن",  # المبلغ : 1190 + 65 شحن
+        r"المبلغ\s*:\s*(\d+)\s*\+\s*(\d+)\s*م\.ش",  # المبلغ : 1890+ 75م.ش
+        r"المبلغ\s*:\s*(\d+)\s*السعر\s*بالشحن",  # المبلغ : 2025 السعر بالشحن
+        r"المبلغ\s*:\s*(\d+)\s*\+\s*(\d+)\s*\+\s*(\d+)",  # المبلغ : 1890 + 1600 + 75
+    ]
+    
+    for pattern in amount_patterns:
+        matches = re.findall(pattern, order_text)
+        for match in matches:
+            if len(match) == 2:  # نمط بمبلغين
+                amount1 = int(match[0])
+                amount2 = int(match[1])
+                total = amount1 + amount2
+                total_amount += total
+            elif len(match) == 3:  # نمط بثلاثة مبالغ
+                amount1 = int(match[0])
+                amount2 = int(match[1])
+                amount3 = int(match[2])
+                total = amount1 + amount2 + amount3
+                total_amount += total
+            elif len(match) == 1:  # نمط بمبلغ واحد (السعر بالشحن)
+                amount = int(match[0])
+                total_amount += amount
 
     return total_amount, order_count
 
-# Function to parse order text using ChatGPT
-def parse_order_text_with_chatgpt(order_text):
-    try:
-        # Placeholder for actual ChatGPT API call
-        # You would send the order_text to ChatGPT and parse its response
-        # For now, let's simulate a response or use a simple parsing logic
-        
-        # Example: Simulating ChatGPT response
-        # response = openai.Completion.create(
-        #     engine="text-davinci-003",
-        #     prompt=f"Extract total amount and order count from the following text: {order_text}",
-        #     max_tokens=100
-        # )
-        # parsed_data = response.choices[0].text.strip()
-        
-        # For demonstration, let's use a simple regex to extract numbers
-        # This needs to be replaced with actual ChatGPT parsing
-        numbers = re.findall(r'\d+', order_text)
-        total_amount = sum(int(n) for n in numbers) if numbers else 0
-        order_count = len(numbers) # Very basic, needs improvement with ChatGPT
-
-        return total_amount, order_count
-    except Exception as e:
-        print(f"Error calling ChatGPT API: {e}")
-        return 0, 0 # Return 0,0 on error to trigger fallback
-
-@order_bp.route("/save_orders", methods=["POST"])
-def save_orders_route():
-    try:
-        data = request.get_json()
-        team = data.get("team", "")
-        orders_text = data.get("orders", "")
-
-        if not team or not orders_text.strip():
-            return jsonify({"error": "الرجاء اختيار الفريق وإدخال نصوص الأوردرات."}), 400
-
-        total_amount, order_count = parse_order_text_with_chatgpt(orders_text)
-        if order_count == 0:
-            total_amount, order_count = parse_order_text_fallback(orders_text)
-
-        # Here you would save to your database
-        # For now, just return a success message
-        return jsonify({"message": f"تم حفظ {order_count} أوردرات بنجاح!", "orders_saved": order_count}), 200
-    except Exception as e:
-        return jsonify({"error": f"حدث خطأ: {str(e)}"}), 500
-
 @order_bp.route("/process_orders", methods=["POST"])
-def process_orders_route():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Invalid JSON"}), 400
+def process_orders():
+    data = request.get_json()
+    order_text = data.get("order_text")
+    team_name = data.get("team_name")
 
-        # Placeholder for actual order processing logic
-        # This is where you would integrate with ChatGPT or other services
-        # For now, just return a success message
-        return jsonify({"message": "Orders received and processed successfully!", "data": data}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    total_amount, order_count = parse_order_text_with_chatgpt(order_text)
+
+    if order_count == 0:
+        total_amount, order_count = parse_order_text_fallback(order_text)
+
+    # Optionally, save to database here if needed, but for now just return the parsed data
+    return jsonify({"total_amount": total_amount, "order_count": order_count})
 
 
