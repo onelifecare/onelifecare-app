@@ -93,20 +93,38 @@ def clear_data():
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء مسح البيانات: {str(e)}'}), 500
 
-# Simplified Facebook Ads data for now
-FACEBOOK_ACCESS_TOKENS = {
-    "Business1": "EAASZBgi6n4ZBgBPBvioC4SYDaReePUfCbcChadEzfUlXsMSEyNq962bES561E0Bs2Wzx9DhmwZBOn0jrR3lLLm4eohK03dlOikOJhRz0Xx7JJez09JGz74ixXUD6ZAhvNbB5BJBjTe9I9WFM83JGYny9VbOOekQ5j6LDrRpSq2clD23olgqVY2KIpLykGZAbAfwZDZD",
-    "Business2": "EAASZBgi6n4ZBgBPHZB5ZCSPS9AXmAS8RHkph8QDpt92XwZA5mViDxopaoWZCZAaCtAWeK0S21txkxuyXgqZCoAHv6HLA24bqJ69ZAC130RZBEZAJQq2ZAkP3kTTg3mJrSxVYmBtQRq3ZCYZBh80OlBWkeuGY0lFvZCYSsJckfBZAMNaZCyks8oRO6w9C2sKzwdXcbS0MyrMjuaQZDZD"
-}
+def load_facebook_access_token():
+    """قراءة مفتاح الوصول لـ Facebook من الملف"""
+    try:
+        token_file_path = os.path.join(basedir, 'facebook_access_token.txt')
+        with open(token_file_path, 'r') as f:
+            return f.read().strip()
+    except Exception as e:
+        print(f"Error loading Facebook access token: {e}")
+        return None
 
-AD_ACCOUNT_IDS = {
-    "A": "act_876940394061784",
-    "B": "act_1063536228108993",
-    "C": "act_1256754798336209",
-    "C1": "act_652648836844418"
-}
+def load_ad_account_ids():
+    """قراءة معرفات الحسابات الإعلانية من الملف"""
+    try:
+        ids_file_path = os.path.join(basedir, 'ad_account_ids.txt')
+        ad_accounts = {}
+        with open(ids_file_path, 'r') as f:
+            for line in f:
+                if ':' in line:
+                    team, account_id = line.strip().split(': ')
+                    ad_accounts[team] = account_id
+        return ad_accounts
+    except Exception as e:
+        print(f"Error loading ad account IDs: {e}")
+        return {
+            "A": "act_876940394061784",
+            "B": "act_1063536228108993", 
+            "C": "act_1256754798336209",
+            "C1": "act_652648836844418"
+        }
 
 def get_facebook_ads_data():
+    """سحب بيانات الصرف الحقيقية من Facebook Ads API"""
     data = {
         "A": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
         "B": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
@@ -115,21 +133,45 @@ def get_facebook_ads_data():
         "Follow-up": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0}
     }
 
-    for team, ad_account_id in AD_ACCOUNT_IDS.items():
-        # Use a generic access token for now, ideally map to specific business
-        access_token = FACEBOOK_ACCESS_TOKENS["Business1"] # Or dynamically select based on team
+    # تحميل مفتاح الوصول ومعرفات الحسابات
+    access_token = load_facebook_access_token()
+    ad_account_ids = load_ad_account_ids()
+    
+    if not access_token:
+        print("No Facebook access token found, using dummy data")
+        return data
+
+    # تهيئة Facebook Ads API
+    try:
         FacebookAdsApi.init(access_token=access_token)
-        
-        try:
-            account = AdAccount(ad_account_id)
-            # Fetch insights for today
-            insights = account.get_insights(fields=["spend"], params={
-                "time_range": {"since": datetime.now().strftime("%Y-%m-%d"), "until": datetime.now().strftime("%Y-%m-%d")}
-            })
-            if insights:
-                data[team]["spend"] = float(insights[0]["spend"])
-        except Exception as e:
-            print(f"Error fetching data for {team} ({ad_account_id}): {e}")
+    except Exception as e:
+        print(f"Error initializing Facebook Ads API: {e}")
+        return data
+
+    # سحب بيانات الصرف لكل فريق
+    for team, ad_account_id in ad_account_ids.items():
+        if team in data:  # التأكد من أن الفريق موجود في البيانات
+            try:
+                account = AdAccount(ad_account_id)
+                # سحب بيانات اليوم الحالي
+                today = datetime.now().strftime("%Y-%m-%d")
+                insights = account.get_insights(
+                    fields=["spend"],
+                    params={
+                        "time_range": {"since": today, "until": today}
+                    }
+                )
+                
+                if insights and len(insights) > 0:
+                    spend_value = insights[0].get("spend", "0")
+                    data[team]["spend"] = float(spend_value)
+                    print(f"Successfully fetched spend for {team}: {spend_value}")
+                else:
+                    print(f"No insights data found for {team} ({ad_account_id})")
+                    
+            except Exception as e:
+                print(f"Error fetching data for {team} ({ad_account_id}): {e}")
+                # في حالة الخطأ، نحتفظ بالقيمة الافتراضية 0
 
     return data
 
