@@ -39,7 +39,7 @@ def get_db_connection():
 
 @app.route('/')
 def index():
-    return render_template('index.html') # Changed to render_template as index.html is in templates folder
+    return render_template("index.html")
 
 @app.route('/api/save_orders', methods=['POST'])
 def save_orders():
