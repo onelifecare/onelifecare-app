@@ -11,7 +11,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__,
             static_folder=os.path.join(basedir, 'static'),
-            template_folder=os.path.join(basedir, 'static'))
+            template_folder=os.path.join(basedir, 'templates'))
 
 def get_db_path():
     """الحصول على المسار المطلق لقاعدة البيانات في مجلد tmp"""
