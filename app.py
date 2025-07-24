@@ -109,19 +109,31 @@ def generate_report_route():
         return jsonify({"success": False, "error": f"حدث خطأ: {str(e)}"}), 500
 
 def parse_orders(order_text):
+    print(f"[DEBUG] Starting parse_orders for text length: {len(order_text)}")
     parsed_orders = []
     # Check if the input text is a WhatsApp chat export
     if '[‏' in order_text and '~' in order_text:
+        print("[DEBUG] Detected WhatsApp chat export format.")
         individual_orders = parse_whatsapp_orders(order_text)
-        for individual_order in individual_orders:
+        print(f"[DEBUG] Found {len(individual_orders)} individual order blocks.")
+        for i, individual_order in enumerate(individual_orders):
+            print(f"[DEBUG] Processing individual order block {i+1}/{len(individual_orders)}: {individual_order[:100]}...")
             sales_amount, _ = parse_order_text(individual_order)
             if sales_amount > 0:
+                print(f"[DEBUG] Successfully parsed sales amount: {sales_amount}")
                 parsed_orders.append({"price": sales_amount})
+            else:
+                print(f"[DEBUG] Skipping individual order block {i+1} due to invalid or missing amount.")
     else:
+        print("[DEBUG] Detected single order format.")
         # Assume it's a single order if not a WhatsApp chat
         sales_amount, _ = parse_order_text(order_text)
         if sales_amount > 0:
+            print(f"[DEBUG] Successfully parsed sales amount: {sales_amount}")
             parsed_orders.append({"price": sales_amount})
+        else:
+            print("[DEBUG] Skipping single order due to invalid or missing amount.")
+    print(f"[DEBUG] Finished parse_orders. Total parsed: {len(parsed_orders)}")
     return parsed_orders
 
 def format_detailed_report(data):
@@ -304,26 +316,33 @@ def parse_whatsapp_orders(whatsapp_text):
 
 def parse_order_text(order_text):
     """
-    Parse individual order text to extract sales amount and agent name
-    """
+    Parse individual order text to extract def parse_order_text(order_text):
+    print(f"[DEBUG] Starting parse_order_text for order: {order_text[:200]}...")
     sales_amount = 0
     agent_name = ""
     
     # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d\.,]+)(?:\s*ج)?(?:\s*\+?\s*([\d\.,]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and 'ج'
+        r"المبلغ\s*:\s*([\d\.,]+)(?:\s*ج)?(?:\s*\+?\s*([\d\.,]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and \'ج\'
         r"المبلغ\s*:\s*([\d\.,]+)"                            # Simple pattern
     ]
     
+    found_amount = False
     for pattern in amount_patterns:
         amount_match = re.search(pattern, order_text)
         if amount_match:
-            # Handle both comma and dot as decimal separators, then remove commas for float conversion
+            print(f"[DEBUG] Amount pattern matched: {pattern}")
             product_price_str = amount_match.group(1).replace(",", "")
-            # If the original string used a comma as a decimal, it's now a dot. If it used a dot, it's still a dot.
-            # This ensures float conversion is correct.
-            sales_amount = float(product_price_str)
+            try:
+                sales_amount = float(product_price_str)
+                found_amount = True
+                print(f"[DEBUG] Extracted sales amount: {sales_amount}")
+            except ValueError as ve:
+                print(f"[ERROR] Could not convert \'{product_price_str}\' to float: {ve}")
             break
+    
+    if not found_amount:
+        print("[DEBUG] No sales amount found with current patterns.")
 
     # Extract \'الايچينت\'
     agent_patterns = [
@@ -334,14 +353,15 @@ def parse_order_text(order_text):
     for pattern in agent_patterns:
         agent_match = re.search(pattern, order_text)
         if agent_match:
+            print(f"[DEBUG] Agent pattern matched: {pattern}")
             agent_name = agent_match.group(1).strip()
             # Clean up agent name
             agent_name = re.sub(r"\u200f<تم تعديل هذه الرسالة>", "", agent_name)
+            print(f"[DEBUG] Extracted agent name: {agent_name}")
             break
         
+    print(f"[DEBUG] Finished parse_order_text. Sales: {sales_amount}, Agent: {agent_name}")
     return sales_amount, agent_name
-
-
 
 
 
