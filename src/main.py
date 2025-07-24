@@ -304,35 +304,48 @@ def generate_report():
 
 def parse_orders(order_text):
     parsed_orders = []
-    # Split the input text into potential order blocks based on common separators
-    # This regex looks for 'الاسم :' or multiple newlines as separators
-    order_blocks = re.split(r'(?:الاسم :|\n\s*\n)+', order_text)
+    # Split the input text into potential order blocks based on 'الاسم :'
+    order_blocks = re.split(r'الاسم\s*:', order_text)
+    
+    # Remove empty blocks and the first block (usually empty or header)
+    order_blocks = [block.strip() for block in order_blocks if block.strip()]
 
     for order_block in order_blocks:
         order_block = order_block.strip()
         if not order_block:
             continue
 
-        # Extract 'الاسم' (Name)
-        name_match = re.search(r'الاسم :\s*(.+?)(?:\n|$)', order_block)
-        customer_name = name_match.group(1).strip() if name_match else "Unknown Customer"
+        # Extract customer name (first line after الاسم :)
+        lines = order_block.split('\n')
+        customer_name = lines[0].strip() if lines else "Unknown Customer"
 
-        # Extract 'المبلغ' (Amount) - Improved to handle multiple additions
+        # Extract 'المبلغ' (Amount) - Enhanced to handle all patterns
         print(f"[DEBUG] Processing order for {customer_name}: {order_block[:200]}...")
         
-        # Look for various patterns of amounts
+        # Look for various patterns of amounts - ordered by specificity
         amount_patterns = [
-            # Pattern with multiple additions: "1190 + 250 + 150"
-            r'المبلغ\s*:\s*([\d,\.]+(?:\s*\+\s*[\d,\.]+)*)',
-            # Pattern with م.ش: "1890+ 75م.ش" or "1890 + 75 م.ش"
-            r'المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش',
-            # Pattern with شحن: "1190 + 75 شحن"
+            # Pattern 1: Multiple additions like "550 + 150 + 75"
+            r'المبلغ\s*:\s*([\d,\.]+(?:\s*\+\s*[\d,\.]+){2,})',
+            
+            # Pattern 2: "مصاريف الشحن" or "مصاريف شحن"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*مصاريف\s*(?:ال)?شحن',
+            
+            # Pattern 3: "م الشحن"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*م\s*الشحن',
+            
+            # Pattern 4: "شحن" (without مصاريف or م)
             r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن',
-            # Pattern with +: "1190 + 65"
+            
+            # Pattern 5: "م ش" or "م.ش"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*م\s*\.?\s*ش',
+            
+            # Pattern 6: "م ض" (typo for م ش)
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*م\s*ض',
+            
+            # Pattern 7: Simple addition "1190 + 65"
             r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)',
-            # Pattern with ج: "1190ج + 75"
-            r'المبلغ\s*:\s*([\d,\.]+)ج?\s*\+?\s*([\d,\.]*)',
-            # Simple pattern: "1190"
+            
+            # Pattern 8: Single amount "1190"
             r'المبلغ\s*:\s*([\d,\.]+)',
         ]
         
@@ -340,35 +353,44 @@ def parse_orders(order_text):
         found_amount = False
         
         for i, pattern in enumerate(amount_patterns):
-            amount_match = re.search(pattern, order_block)
+            amount_match = re.search(pattern, order_block, re.IGNORECASE)
             if amount_match:
                 print(f"[DEBUG] Amount pattern {i} matched: {amount_match.group(0)}")
                 
-                if i == 0:  # Multiple additions pattern
-                    # Extract all numbers and sum them
-                    numbers = re.findall(r'[\d,\.]+', amount_match.group(1))
-                    total = 0
-                    for num in numbers:
-                        total += float(num.replace(",", ""))
-                    amount = total
-                    print(f"[DEBUG] Multiple additions - numbers: {numbers}, total: {total}")
-                    found_amount = True
-                else:
-                    # Single number pattern
-                    try:
-                        amount_str_part1 = amount_match.group(1).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
-                        amount = float(amount_str_part1)
-                        print(f"[DEBUG] Extracted amount: {amount}")
+                try:
+                    if i == 0:  # Multiple additions pattern
+                        # Extract all numbers and sum them
+                        numbers = re.findall(r'[\d,\.]+', amount_match.group(1))
+                        total = 0
+                        for num in numbers:
+                            total += float(num.replace(",", ""))
+                        amount = total
+                        print(f"[DEBUG] Multiple additions - numbers: {numbers}, total: {total}")
                         found_amount = True
-                    except ValueError as ve:
-                        print(f"[ERROR] Could not convert '{amount_str_part1}' to float: {ve}")
-                break
+                    elif i >= 1 and i <= 6:  # Two-part patterns (base + shipping)
+                        # Extract both parts and sum them
+                        part1 = float(amount_match.group(1).replace(",", ""))
+                        part2 = float(amount_match.group(2).replace(",", "")) if amount_match.group(2) else 0
+                        amount = part1 + part2
+                        print(f"[DEBUG] Two-part amount - base: {part1}, shipping: {part2}, total: {amount}")
+                        found_amount = True
+                    else:  # Single amount pattern
+                        amount = float(amount_match.group(1).replace(",", ""))
+                        print(f"[DEBUG] Single amount: {amount}")
+                        found_amount = True
+                    
+                    break  # Stop at first match
+                    
+                except (ValueError, IndexError) as e:
+                    print(f"[ERROR] Could not parse amount from '{amount_match.group(0)}': {e}")
+                    continue
         
         if not found_amount:
             print(f"[DEBUG] No amount pattern matched for {customer_name}")
 
         if amount > 0:
             parsed_orders.append({"customer_name": customer_name, "price": amount})
+            print(f"[DEBUG] Added order: {customer_name} - {amount} ج")
         else:
             print(f"Skipping order for {customer_name} due to invalid or missing amount.")
 
