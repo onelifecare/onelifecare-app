@@ -32,10 +32,20 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             team TEXT NOT NULL,
             order_count INTEGER NOT NULL,
+            sales REAL DEFAULT 0,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """
     )
+    
+    # Add sales column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN sales REAL DEFAULT 0")
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
+    
     conn.commit()
     conn.close()
 
@@ -63,16 +73,19 @@ def save_orders():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Aggregate orders by team from parsed_orders
-        team_order_counts = {}
+        # Aggregate orders and sales by team from parsed_orders
+        team_data = {}
         for order in parsed_orders:
             # Assuming the team is passed from the frontend and is consistent for the batch
-            # If individual orders can have different teams, this logic needs adjustment
-            team_order_counts[team] = team_order_counts.get(team, 0) + 1
+            if team not in team_data:
+                team_data[team] = {'count': 0, 'sales': 0}
+            team_data[team]['count'] += 1
+            team_data[team]['sales'] += order['price']
 
-        for team_name, count in team_order_counts.items():
-            if count > 0:
-                cursor.execute('INSERT INTO orders (team, order_count) VALUES (?, ?)', (team_name, count))
+        for team_name, data in team_data.items():
+            if data['count'] > 0:
+                cursor.execute('INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)', 
+                             (team_name, data['count'], data['sales']))
         
         conn.commit()
         conn.close()
@@ -181,29 +194,34 @@ def generate_report():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # جلب إجمالي الأوردرات لكل فريق
-        cursor.execute('SELECT team, SUM(order_count) FROM orders GROUP BY team ORDER BY team')
-        orders_by_team = dict(cursor.fetchall())
+        # جلب إجمالي الأوردرات والمبيعات لكل فريق
+        cursor.execute('SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team ORDER BY team')
+        team_data = cursor.fetchall()
+        
+        orders_by_team = {}
+        sales_by_team = {}
+        for team, order_count, sales in team_data:
+            orders_by_team[team] = order_count if order_count else 0
+            sales_by_team[team] = sales if sales else 0
         
         conn.close()
 
         # Get simplified Facebook Ads data
         facebook_data = get_facebook_ads_data()
         
-        # Update facebook_data with actual orders from DB
+        # Update facebook_data with actual orders and sales from DB
         for team in facebook_data:
             facebook_data[team]["orders"] = orders_by_team.get(team, 0)
+            facebook_data[team]["sales"] = sales_by_team.get(team, 0)
 
-        # Calculate sales and held based on orders and dummy spend
+        # Calculate held and ROAS based on actual data
         for team_name, data in facebook_data.items():
-            # Assuming an average sale value per order for simplification
-            # This needs to be adjusted based on actual business logic
             if team_name != 'Follow-up':
-                data['sales'] = data['orders'] * 100 # Example: 100 JOD per order
                 data['held'] = data['spend'] / data['orders'] if data['orders'] > 0 else 0
                 data['roas'] = data['sales'] / data['spend'] if data['spend'] > 0 else 0
             else:
-                data['sales'] = data['orders'] * 80 # Example: 80 JOD per order for follow-up
+                # For follow-up team, no spend calculation needed
+                pass
 
         # تنسيق التقرير
         report_text = format_detailed_report(facebook_data)
@@ -231,19 +249,55 @@ def parse_orders(order_text):
         name_match = re.search(r'الاسم :\s*(.+?)(?:\n|$)', order_block)
         customer_name = name_match.group(1).strip() if name_match else "Unknown Customer"
 
-        # Extract 'المبلغ' (Amount)
-        # This regex now correctly handles 'ج' or 'م.ش' and optional '+' for multiple amounts
-        amount_match = re.search(r'المبلغ :\s*([\d.,]+(?:\s*ج|م.ش)?)(?:\s*\+\s*([\d.,]+(?:\s*ج|م.ش)?))?', order_block)
+        # Extract 'المبلغ' (Amount) - Improved to handle multiple additions
+        print(f"[DEBUG] Processing order for {customer_name}: {order_block[:200]}...")
+        
+        # Look for various patterns of amounts
+        amount_patterns = [
+            # Pattern with multiple additions: "1190 + 250 + 150"
+            r'المبلغ\s*:\s*([\d,\.]+(?:\s*\+\s*[\d,\.]+)*)',
+            # Pattern with م.ش: "1890+ 75م.ش" or "1890 + 75 م.ش"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش',
+            # Pattern with شحن: "1190 + 75 شحن"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن',
+            # Pattern with +: "1190 + 65"
+            r'المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)',
+            # Pattern with ج: "1190ج + 75"
+            r'المبلغ\s*:\s*([\d,\.]+)ج?\s*\+?\s*([\d,\.]*)',
+            # Simple pattern: "1190"
+            r'المبلغ\s*:\s*([\d,\.]+)',
+        ]
+        
         amount = 0.0
-        if amount_match:
-            amount_str_part1 = amount_match.group(1).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
-            try:
-                amount = float(amount_str_part1)
-                if amount_match.group(2):
-                    amount_str_part2 = amount_match.group(2).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
-                    amount += float(amount_str_part2)
-            except ValueError:
-                print(f"Could not parse amount from: {amount_str_part1}")
+        found_amount = False
+        
+        for i, pattern in enumerate(amount_patterns):
+            amount_match = re.search(pattern, order_block)
+            if amount_match:
+                print(f"[DEBUG] Amount pattern {i} matched: {amount_match.group(0)}")
+                
+                if i == 0:  # Multiple additions pattern
+                    # Extract all numbers and sum them
+                    numbers = re.findall(r'[\d,\.]+', amount_match.group(1))
+                    total = 0
+                    for num in numbers:
+                        total += float(num.replace(",", ""))
+                    amount = total
+                    print(f"[DEBUG] Multiple additions - numbers: {numbers}, total: {total}")
+                    found_amount = True
+                else:
+                    # Single number pattern
+                    try:
+                        amount_str_part1 = amount_match.group(1).replace('ج', '').replace('م.ش', '').replace(' ', '').replace(',', '')
+                        amount = float(amount_str_part1)
+                        print(f"[DEBUG] Extracted amount: {amount}")
+                        found_amount = True
+                    except ValueError as ve:
+                        print(f"[ERROR] Could not convert '{amount_str_part1}' to float: {ve}")
+                break
+        
+        if not found_amount:
+            print(f"[DEBUG] No amount pattern matched for {customer_name}")
 
         if amount > 0:
             parsed_orders.append({"customer_name": customer_name, "price": amount})
