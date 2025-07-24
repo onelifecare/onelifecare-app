@@ -190,6 +190,8 @@
             color: #333;
             max-height: 600px;
             overflow-y: auto;
+            margin: 0 auto; /* Center the report */
+            text-align: center; /* Center text content */
         }
 
         .loading {
@@ -305,6 +307,12 @@
                     جاري تحميل التقرير...
                 </div>
             </div>
+
+            <!-- Report Action Buttons - Only shown when report is loaded -->
+            <div id="reportActions" class="button-group" style="display: none; margin-top: 20px;">
+                <button onclick="copyReport()" class="btn-warning">📋 نسخ التقرير</button>
+                <button onclick="sendToWhatsApp()" class="btn-success">📱 إرسال للواتساب</button>
+            </div>
         </div>
     </div>
 
@@ -413,8 +421,10 @@
         // Load report function
         async function loadReport() {
             const reportContainer = document.getElementById("reportContainer");
+            const reportActions = document.getElementById("reportActions");
             
-            // Show loading state
+            // Hide action buttons and show loading state
+            reportActions.style.display = "none";
             reportContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
@@ -428,14 +438,17 @@
 
                 if (response.ok) {
                     reportContainer.innerHTML = `
-                        <div class="report-content">${data.report}</div>
+                        <div class="report-content" id="reportContent">${data.report}</div>
                     `;
+                    // Show action buttons after successful load
+                    reportActions.style.display = "flex";
                 } else {
                     reportContainer.innerHTML = `
                         <div class="message error" style="display: block;">
                             خطأ في تحميل التقرير: ${data.error || "خطأ غير معروف"}
                         </div>
                     `;
+                    reportActions.style.display = "none";
                 }
             } catch (error) {
                 reportContainer.innerHTML = `
@@ -443,7 +456,60 @@
                         خطأ في الاتصال بالخادم: ${error.message}
                     </div>
                 `;
+                reportActions.style.display = "none";
             }
+        }
+
+        // Copy report to clipboard
+        async function copyReport() {
+            const reportContent = document.getElementById("reportContent");
+            if (!reportContent) {
+                alert("لا يوجد تقرير لنسخه!");
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(reportContent.textContent);
+                
+                // Show temporary success message
+                const originalText = event.target.textContent;
+                event.target.textContent = "✅ تم النسخ!";
+                event.target.style.background = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)";
+                
+                setTimeout(() => {
+                    event.target.textContent = originalText;
+                    event.target.style.background = "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)";
+                }, 2000);
+                
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = reportContent.textContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                alert("تم نسخ التقرير بنجاح!");
+            }
+        }
+
+        // Send report to WhatsApp
+        function sendToWhatsApp() {
+            const reportContent = document.getElementById("reportContent");
+            if (!reportContent) {
+                alert("لا يوجد تقرير لإرساله!");
+                return;
+            }
+
+            // Encode the report text for URL
+            const reportText = encodeURIComponent(reportContent.textContent);
+            
+            // Create WhatsApp URL
+            const whatsappUrl = `https://wa.me/?text=${reportText}`;
+            
+            // Open WhatsApp in new tab
+            window.open(whatsappUrl, '_blank');
         }
 
         // Load report on page load if report page is active
