@@ -281,7 +281,8 @@ def parse_whatsapp_orders(whatsapp_text):
     
     # Split by WhatsApp timestamp pattern [date, time] ~ sender:
     # Pattern: [‏17‏/7‏/2025، 12:37:42 ص] ~ sender name:
-    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:"
+    # Updated pattern to be more flexible with unicode characters and spaces
+    timestamp_pattern = r"\u200f?\[\u200f?\d+\u200f?\/\u200f?\d+\u200f?\/\u200f?\d+،?\s*\d+:\d+:\d+\s*[صم]\u200f?\]\s*~?\s*[^:]+:\s*"
     
     # Split the text by timestamps
     order_blocks = re.split(timestamp_pattern, whatsapp_text)
@@ -299,24 +300,49 @@ def parse_whatsapp_orders(whatsapp_text):
 def parse_order_text(order_text):
     """
     Parse individual order text to extract sales amount and agent name
+    Improved version to handle more patterns including multiple additions
     """
     sales_amount = 0
     agent_name = ""
     
-    # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
+    print(f"DEBUG: Processing order text (first 200 chars): {order_text[:200]}...")
+    
+    # Extract 'المبلغ' - look for various patterns
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",  # Pattern with م.ش
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",         # Pattern with +
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",   # Pattern with شحن
-        r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
+        # Pattern with multiple additions: "1190 + 250 + 150"
+        r"المبلغ\s*:\s*([\d,\.]+(?:\s*\+\s*[\d,\.]+)*)",
+        # Pattern with م.ش: "1890+ 75م.ش" or "1890 + 75 م.ش"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",
+        # Pattern with شحن: "1190 + 75 شحن"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",
+        # Pattern with +: "1190 + 65"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",
+        # Simple pattern: "1190"
+        r"المبلغ\s*:\s*([\d,\.]+)",
     ]
     
-    for pattern in amount_patterns:
+    for i, pattern in enumerate(amount_patterns):
         amount_match = re.search(pattern, order_text)
         if amount_match:
-            product_price = float(amount_match.group(1).replace(",", ""))
-            sales_amount = product_price  # Sales excluding shipping
+            print(f"DEBUG: Pattern {i} matched: {amount_match.group(0)}")
+            
+            if i == 0:  # Multiple additions pattern
+                # Extract all numbers and sum them
+                numbers = re.findall(r'[\d,\.]+', amount_match.group(1))
+                total = 0
+                for num in numbers:
+                    total += float(num.replace(",", ""))
+                sales_amount = total
+                print(f"DEBUG: Multiple additions - numbers: {numbers}, total: {total}")
+            else:
+                # Single number pattern
+                product_price = float(amount_match.group(1).replace(",", ""))
+                sales_amount = product_price  # Sales excluding shipping
+                print(f"DEBUG: Single number - price: {product_price}")
             break
+    
+    if sales_amount == 0:
+        print("DEBUG: No amount pattern matched")
 
     # Extract \'الايچينت\' or \'الايچينت :\'
     agent_patterns = [
@@ -330,7 +356,11 @@ def parse_order_text(order_text):
             agent_name = agent_match.group(1).strip()
             # Clean up agent name
             agent_name = re.sub(r"\u200f<تم تعديل هذه الرسالة>", "", agent_name)
+            print(f"DEBUG: Agent found: {agent_name}")
             break
+    
+    if not agent_name:
+        print("DEBUG: No agent pattern matched")
         
     return sales_amount, agent_name
 
@@ -365,18 +395,14 @@ def generate_report_data_and_format():
     # Load orders from database
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT team, SUM(order_count) FROM orders GROUP BY team")
+    cursor.execute("SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team")
     db_orders = cursor.fetchall()
     conn.close()
 
-    for team, count in db_orders:
+    for team, count, sales in db_orders:
         if team in team_sales_data:
-            team_sales_data[team]["orders"] += count
-            # Assuming a fixed sales value per order for now, adjust as needed
-            if team == "Follow-up":
-                team_sales_data[team]["sales"] += count * 80 # Example value
-            else:
-                team_sales_data[team]["sales"] += count * 100 # Example value
+            team_sales_data[team]["orders"] += count if count else 0
+            team_sales_data[team]["sales"] += sales if sales else 0
 
     # Generate report in the requested format with Egypt timezone and date
     report_date = now.strftime("%Y/%m/%d")
@@ -460,7 +486,7 @@ def generate_report_data_and_format():
         report += f"تيم (فولو أب)\n"
         report += f"عدد الاوردرات:/ {follow_up_orders}\n"
         report += f"المبيعات (غير شاملة الشحن) :/ {follow_up_sales:,.0f}\n"
-        report += "  ________________\n"
+        report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
         overall_total_orders += follow_up_orders
         overall_total_sales += follow_up_sales
 
@@ -470,8 +496,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_ab = 0
 
-    report += "________👇اجماليات 👇_____\n"
-    report += "(A) + (B)\n"
+    report += "\nاجماليات (A) + (B)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_ab:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_ab}\n"
     report += f"ممسوك / {total_cost_per_order_ab:,.0f}\n"
@@ -485,7 +510,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_cc1 = 0
 
-    report += "\n(C) + (C1)\n"
+    report += "\nاجماليات (C) + (C1)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_cc1:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_cc1}\n"
     report += f"ممسوك / {total_cost_per_order_cc1:,.0f}\n"
@@ -497,7 +522,7 @@ def generate_report_data_and_format():
     overall_cost_per_order = overall_total_spend / overall_total_orders if overall_total_orders > 0 else 0
     overall_roas = overall_total_sales / overall_total_spend if overall_total_spend > 0 else 0
 
-    report += "\n________👇اجماليات عامة 👇_____\n"
+    report += "\nاجماليات عامة\n"
     report += f"إجمالي الصرف الكلي :/ {overall_total_spend:,.0f}\n"
     report += f"إجمالي الأوردرات الكلي :/ {overall_total_orders}\n"
     report += f"متوسط ممسوك الكلي :/ {overall_cost_per_order:,.0f}\n"
