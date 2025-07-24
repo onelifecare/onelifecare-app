@@ -201,8 +201,10 @@ def generate_report():
         cursor = conn.cursor()
         
         # جلب إجمالي الأوردرات والمبيعات لكل فريق
+        print("[DEBUG] Executing query: SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team ORDER BY team")
         cursor.execute('SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team ORDER BY team')
         team_data = cursor.fetchall()
+        print(f"[DEBUG] Raw data from database: {team_data}")
         
         orders_by_team = {}
         sales_by_team = {}
@@ -210,10 +212,14 @@ def generate_report():
             orders_by_team[team] = order_count if order_count else 0
             sales_by_team[team] = sales if sales else 0
         
+        print(f"[DEBUG] Orders by team: {orders_by_team}")
+        print(f"[DEBUG] Sales by team: {sales_by_team}")
+        
         conn.close()
 
         # Get simplified Facebook Ads data
         facebook_data = get_facebook_ads_data()
+        print(f"[DEBUG] Facebook data before update: {facebook_data}")
         
         # Update facebook_data with actual orders and sales from DB
         for team in facebook_data:
@@ -228,6 +234,8 @@ def generate_report():
             else:
                 # For follow-up team, no spend calculation needed
                 pass
+
+        print(f"[DEBUG] Final facebook_data after update: {facebook_data}")
 
         # تنسيق التقرير
         report_text = format_detailed_report(facebook_data)
