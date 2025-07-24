@@ -114,7 +114,8 @@
         }
 
         textarea {
-            min-height: 200px;
+            min-height: 300px; /* زيادة الارتفاع من 200px إلى 300px */
+            max-height: 500px; /* إضافة حد أقصى للارتفاع */
             resize: vertical;
             line-height: 1.6;
         }
@@ -277,11 +278,13 @@
 
             <div class="form-group">
                 <label for="orderText">الصق نصوص الأوردرات هنا:</label>
-                <textarea id="orderText" placeholder="الصق الأوردرات المنسوخة من الواتساب هنا...
+                <textarea id="orderText" maxlength="50000" placeholder="الصق الأوردرات المنسوخة من الواتساب هنا...
 
 ملاحظة: النظام سيقوم تلقائياً بفلترة الأوقات وأسماء المرسلين والتركيز على نصوص الأوردرات فقط."></textarea>
                 <div class="help-text">
                     💡 يمكنك نسخ الأوردرات مباشرة من الواتساب. النظام سيتجاهل الأوقات وأسماء المرسلين تلقائياً.
+                    <br>
+                    📊 <span id="charCounter">0 / 50,000 حرف</span> - يدعم النظام الآن حتى 100+ أوردر
                 </div>
             </div>
 
@@ -517,6 +520,31 @@
             if (document.getElementById('report-page').classList.contains('active')) {
                 loadReport();
             }
+            
+            // Initialize character counter
+            const orderTextArea = document.getElementById('orderText');
+            const charCounter = document.getElementById('charCounter');
+            
+            function updateCharCounter() {
+                const currentLength = orderTextArea.value.length;
+                const maxLength = 50000;
+                charCounter.textContent = `${currentLength.toLocaleString('ar-EG')} / ${maxLength.toLocaleString('ar-EG')} حرف`;
+                
+                // Change color based on usage
+                if (currentLength > maxLength * 0.9) {
+                    charCounter.style.color = '#f44336'; // Red when near limit
+                } else if (currentLength > maxLength * 0.7) {
+                    charCounter.style.color = '#ff9800'; // Orange when getting close
+                } else {
+                    charCounter.style.color = '#4CAF50'; // Green when safe
+                }
+            }
+            
+            // Update counter on input
+            orderTextArea.addEventListener('input', updateCharCounter);
+            
+            // Initial update
+            updateCharCounter();
         });
     </script>
 </body>

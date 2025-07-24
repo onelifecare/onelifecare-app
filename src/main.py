@@ -315,24 +315,32 @@ def generate_report():
         return jsonify({"success": False, "error": f"حدث خطأ: {str(e)}"}), 500
 
 def parse_orders(order_text):
+    """تحليل الأوردرات مع تحسينات للنصوص الطويلة والكميات الكبيرة"""
     parsed_orders = []
+    
+    # تحسين: إزالة المسافات الزائدة والأسطر الفارغة لتوفير الذاكرة
+    order_text = re.sub(r'\n\s*\n', '\n', order_text.strip())
+    
     # Split the input text into potential order blocks based on 'الاسم :'
     order_blocks = re.split(r'الاسم\s*:', order_text)
     
     # Remove empty blocks and the first block (usually empty or header)
     order_blocks = [block.strip() for block in order_blocks if block.strip()]
+    
+    print(f"[DEBUG] Processing {len(order_blocks)} order blocks from input text")
 
-    for order_block in order_blocks:
+    for idx, order_block in enumerate(order_blocks):
         order_block = order_block.strip()
         if not order_block:
             continue
 
         # Extract customer name (first line after الاسم :)
         lines = order_block.split('\n')
-        customer_name = lines[0].strip() if lines else "Unknown Customer"
+        customer_name = lines[0].strip() if lines else f"Unknown Customer {idx+1}"
 
         # Extract 'المبلغ' (Amount) - Enhanced to handle all patterns
-        print(f"[DEBUG] Processing order for {customer_name}: {order_block[:200]}...")
+        if idx < 5:  # Only show debug for first 5 orders to avoid spam
+            print(f"[DEBUG] Processing order {idx+1} for {customer_name}")
         
         # Look for various patterns of amounts - ordered by specificity
         amount_patterns = [
@@ -367,7 +375,8 @@ def parse_orders(order_text):
         for i, pattern in enumerate(amount_patterns):
             amount_match = re.search(pattern, order_block, re.IGNORECASE)
             if amount_match:
-                print(f"[DEBUG] Amount pattern {i} matched: {amount_match.group(0)}")
+                if idx < 3:  # Only show debug for first 3 orders
+                    print(f"[DEBUG] Amount pattern {i+1} matched: {amount_match.group(0)}")
                 
                 try:
                     if i == 0:  # Multiple additions pattern
@@ -377,35 +386,42 @@ def parse_orders(order_text):
                         for num in numbers:
                             total += float(num.replace(",", ""))
                         amount = total
-                        print(f"[DEBUG] Multiple additions - numbers: {numbers}, total: {total}")
+                        if idx < 3:
+                            print(f"[DEBUG] Multiple additions - total: {total}")
                         found_amount = True
                     elif i >= 1 and i <= 6:  # Two-part patterns (base + shipping)
                         # Extract both parts and sum them
                         part1 = float(amount_match.group(1).replace(",", ""))
                         part2 = float(amount_match.group(2).replace(",", "")) if amount_match.group(2) else 0
                         amount = part1 + part2
-                        print(f"[DEBUG] Two-part amount - base: {part1}, shipping: {part2}, total: {amount}")
+                        if idx < 3:
+                            print(f"[DEBUG] Two-part amount - base: {part1}, shipping: {part2}, total: {amount}")
                         found_amount = True
                     else:  # Single amount pattern
                         amount = float(amount_match.group(1).replace(",", ""))
-                        print(f"[DEBUG] Single amount: {amount}")
+                        if idx < 3:
+                            print(f"[DEBUG] Single amount: {amount}")
                         found_amount = True
                     
                     break  # Stop at first match
                     
                 except (ValueError, IndexError) as e:
-                    print(f"[ERROR] Could not parse amount from '{amount_match.group(0)}': {e}")
+                    if idx < 3:
+                        print(f"[ERROR] Could not parse amount from '{amount_match.group(0)}': {e}")
                     continue
         
-        if not found_amount:
+        if not found_amount and idx < 3:
             print(f"[DEBUG] No amount pattern matched for {customer_name}")
 
         if amount > 0:
             parsed_orders.append({"customer_name": customer_name, "price": amount})
-            print(f"[DEBUG] Added order: {customer_name} - {amount} ج")
+            if idx < 3:
+                print(f"[DEBUG] Added order: {customer_name} - {amount} ج")
         else:
-            print(f"Skipping order for {customer_name} due to invalid or missing amount.")
+            if idx < 3:
+                print(f"Skipping order for {customer_name} due to invalid or missing amount.")
 
+    print(f"[DEBUG] Successfully parsed {len(parsed_orders)} orders from {len(order_blocks)} blocks")
     return parsed_orders
 
 def format_detailed_report(data):
