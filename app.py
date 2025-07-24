@@ -25,9 +25,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             team TEXT NOT NULL,
             order_count INTEGER NOT NULL,
+            sales REAL DEFAULT 0,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    """
     )
     conn.commit()
     conn.close()
@@ -55,13 +55,18 @@ def save_orders():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        team_order_counts = {}
+        team_data_to_save = {}
         for order in parsed_orders:
-            team_order_counts[team] = team_order_counts.get(team, 0) + 1
+            team_name = team # Assuming the team is passed for all orders in this batch
+            if team_name not in team_data_to_save:
+                team_data_to_save[team_name] = {"orders": 0, "sales": 0}
+            team_data_to_save[team_name]["orders"] += 1
+            team_data_to_save[team_name]["sales"] += order.get("price", 0)
 
-        for team_name, count in team_order_counts.items():
-            if count > 0:
-                cursor.execute('INSERT INTO orders (team, order_count) VALUES (?, ?)', (team_name, count))
+        for team_name, data_to_save in team_data_to_save.items():
+            if data_to_save["orders"] > 0:
+                cursor.execute("INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)", 
+                               (team_name, data_to_save["orders"], data_to_save["sales"]))
         
         conn.commit()
         conn.close()
@@ -364,18 +369,14 @@ def generate_report_data_and_format():
     # Load orders from database
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT team, SUM(order_count) FROM orders GROUP BY team")
-    db_orders = cursor.fetchall()
+    cursor.execute("SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team")
+    db_orders_and_sales = cursor.fetchall()
     conn.close()
 
-    for team, count in db_orders:
+    for team, count, sales_sum in db_orders_and_sales:
         if team in team_sales_data:
             team_sales_data[team]["orders"] += count
-            # Assuming a fixed sales value per order for now, adjust as needed
-            if team == "Follow-up":
-                team_sales_data[team]["sales"] += count * 80 # Example value
-            else:
-                team_sales_data[team]["sales"] += count * 100 # Example value
+            team_sales_data[team]["sales"] += sales_sum
 
     # Generate report in the requested format with Egypt timezone and date
     report_date = now.strftime("%Y/%m/%d")
