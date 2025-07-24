@@ -25,9 +25,9 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             team TEXT NOT NULL,
             order_count INTEGER NOT NULL,
+            sales REAL DEFAULT 0,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    """
     )
     conn.commit()
     conn.close()
@@ -55,13 +55,18 @@ def save_orders():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        team_order_counts = {}
+        team_data_to_save = {}
         for order in parsed_orders:
-            team_order_counts[team] = team_order_counts.get(team, 0) + 1
+            team_name = team # Assuming the team is passed for all orders in this batch
+            if team_name not in team_data_to_save:
+                team_data_to_save[team_name] = {"orders": 0, "sales": 0}
+            team_data_to_save[team_name]["orders"] += 1
+            team_data_to_save[team_name]["sales"] += order.get("price", 0)
 
-        for team_name, count in team_order_counts.items():
-            if count > 0:
-                cursor.execute('INSERT INTO orders (team, order_count) VALUES (?, ?)', (team_name, count))
+        for team_name, data_to_save in team_data_to_save.items():
+            if data_to_save["orders"] > 0:
+                cursor.execute("INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)", 
+                               (team_name, data_to_save["orders"], data_to_save["sales"]))
         
         conn.commit()
         conn.close()
@@ -104,19 +109,31 @@ def generate_report_route():
         return jsonify({"success": False, "error": f"حدث خطأ: {str(e)}"}), 500
 
 def parse_orders(order_text):
+    print(f"[DEBUG] Starting parse_orders for text length: {len(order_text)}")
     parsed_orders = []
     # Check if the input text is a WhatsApp chat export
     if '[‏' in order_text and '~' in order_text:
+        print("[DEBUG] Detected WhatsApp chat export format.")
         individual_orders = parse_whatsapp_orders(order_text)
-        for individual_order in individual_orders:
+        print(f"[DEBUG] Found {len(individual_orders)} individual order blocks.")
+        for i, individual_order in enumerate(individual_orders):
+            print(f"[DEBUG] Processing individual order block {i+1}/{len(individual_orders)}: {individual_order[:100]}...")
             sales_amount, _ = parse_order_text(individual_order)
             if sales_amount > 0:
+                print(f"[DEBUG] Successfully parsed sales amount: {sales_amount}")
                 parsed_orders.append({"price": sales_amount})
+            else:
+                print(f"[DEBUG] Skipping individual order block {i+1} due to invalid or missing amount.")
     else:
+        print("[DEBUG] Detected single order format.")
         # Assume it's a single order if not a WhatsApp chat
         sales_amount, _ = parse_order_text(order_text)
         if sales_amount > 0:
+            print(f"[DEBUG] Successfully parsed sales amount: {sales_amount}")
             parsed_orders.append({"price": sales_amount})
+        else:
+            print("[DEBUG] Skipping single order due to invalid or missing amount.")
+    print(f"[DEBUG] Finished parse_orders. Total parsed: {len(parsed_orders)}")
     return parsed_orders
 
 def format_detailed_report(data):
@@ -281,7 +298,8 @@ def parse_whatsapp_orders(whatsapp_text):
     
     # Split by WhatsApp timestamp pattern [date, time] ~ sender:
     # Pattern: [‏17‏/7‏/2025، 12:37:42 ص] ~ sender name:
-    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:"
+    # Updated pattern to be more flexible with unicode characters and spaces
+    timestamp_pattern = r"\u200f?\[\u200f?\d{1,2}\u200f?\/\u200f?\d{1,2}\u200f?\/\u200f?\d{2,4}،?\s*\d{1,2}:\d{2}(?::\d{2})?\s*[صمPMAM]?\u200f?\]\s*~?\s*[^:]+:\s*"
     
     # Split the text by timestamps
     order_blocks = re.split(timestamp_pattern, whatsapp_text)
@@ -298,27 +316,35 @@ def parse_whatsapp_orders(whatsapp_text):
 
 def parse_order_text(order_text):
     """
-    Parse individual order text to extract sales amount and agent name
-    """
+    Parse individual order text to extract def parse_order_text(order_text):
+    print(f"[DEBUG] Starting parse_order_text for order: {order_text[:200]}...")
     sales_amount = 0
     agent_name = ""
     
     # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",  # Pattern with م.ش
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",         # Pattern with +
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",   # Pattern with شحن
-        r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
+        r"المبلغ\s*:\s*([\d\.,]+)(?:\s*ج)?(?:\s*\+?\s*([\d\.,]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and \'ج\'
+        r"المبلغ\s*:\s*([\d\.,]+)"                            # Simple pattern
     ]
     
+    found_amount = False
     for pattern in amount_patterns:
         amount_match = re.search(pattern, order_text)
         if amount_match:
-            product_price = float(amount_match.group(1).replace(",", ""))
-            sales_amount = product_price  # Sales excluding shipping
+            print(f"[DEBUG] Amount pattern matched: {pattern}")
+            product_price_str = amount_match.group(1).replace(",", "")
+            try:
+                sales_amount = float(product_price_str)
+                found_amount = True
+                print(f"[DEBUG] Extracted sales amount: {sales_amount}")
+            except ValueError as ve:
+                print(f"[ERROR] Could not convert \'{product_price_str}\' to float: {ve}")
             break
+    
+    if not found_amount:
+        print("[DEBUG] No sales amount found with current patterns.")
 
-    # Extract \'الايچينت\' or \'الايچينت :\'
+    # Extract \'الايچينت\'
     agent_patterns = [
         r"الايچينت\s*:\s*(.+?)(?:\n|$)",
         r"الايچينت\s*:\s*(.+?)(?:\s|$)"
@@ -327,14 +353,15 @@ def parse_order_text(order_text):
     for pattern in agent_patterns:
         agent_match = re.search(pattern, order_text)
         if agent_match:
+            print(f"[DEBUG] Agent pattern matched: {pattern}")
             agent_name = agent_match.group(1).strip()
             # Clean up agent name
             agent_name = re.sub(r"\u200f<تم تعديل هذه الرسالة>", "", agent_name)
+            print(f"[DEBUG] Extracted agent name: {agent_name}")
             break
         
+    print(f"[DEBUG] Finished parse_order_text. Sales: {sales_amount}, Agent: {agent_name}")
     return sales_amount, agent_name
-
-
 
 
 
@@ -365,18 +392,14 @@ def generate_report_data_and_format():
     # Load orders from database
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT team, SUM(order_count) FROM orders GROUP BY team")
-    db_orders = cursor.fetchall()
+    cursor.execute("SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team")
+    db_orders_and_sales = cursor.fetchall()
     conn.close()
 
-    for team, count in db_orders:
+    for team, count, sales_sum in db_orders_and_sales:
         if team in team_sales_data:
             team_sales_data[team]["orders"] += count
-            # Assuming a fixed sales value per order for now, adjust as needed
-            if team == "Follow-up":
-                team_sales_data[team]["sales"] += count * 80 # Example value
-            else:
-                team_sales_data[team]["sales"] += count * 100 # Example value
+            team_sales_data[team]["sales"] += sales_sum
 
     # Generate report in the requested format with Egypt timezone and date
     report_date = now.strftime("%Y/%m/%d")
@@ -460,7 +483,7 @@ def generate_report_data_and_format():
         report += f"تيم (فولو أب)\n"
         report += f"عدد الاوردرات:/ {follow_up_orders}\n"
         report += f"المبيعات (غير شاملة الشحن) :/ {follow_up_sales:,.0f}\n"
-        report += "  ________________\n"
+        report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
         overall_total_orders += follow_up_orders
         overall_total_sales += follow_up_sales
 
@@ -470,8 +493,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_ab = 0
 
-    report += "________👇اجماليات 👇_____\n"
-    report += "(A) + (B)\n"
+    report += "\nاجماليات (A) + (B)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_ab:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_ab}\n"
     report += f"ممسوك / {total_cost_per_order_ab:,.0f}\n"
@@ -485,7 +507,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_cc1 = 0
 
-    report += "\n(C) + (C1)\n"
+    report += "\nاجماليات (C) + (C1)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_cc1:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_cc1}\n"
     report += f"ممسوك / {total_cost_per_order_cc1:,.0f}\n"
@@ -497,7 +519,7 @@ def generate_report_data_and_format():
     overall_cost_per_order = overall_total_spend / overall_total_orders if overall_total_orders > 0 else 0
     overall_roas = overall_total_sales / overall_total_spend if overall_total_spend > 0 else 0
 
-    report += "\n________👇اجماليات عامة 👇_____\n"
+    report += "\nاجماليات عامة\n"
     report += f"إجمالي الصرف الكلي :/ {overall_total_spend:,.0f}\n"
     report += f"إجمالي الأوردرات الكلي :/ {overall_total_orders}\n"
     report += f"متوسط ممسوك الكلي :/ {overall_cost_per_order:,.0f}\n"
