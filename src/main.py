@@ -116,9 +116,12 @@ def load_facebook_access_tokens():
     """قراءة مفاتيح الوصول لـ Facebook من الملفات"""
     tokens = {}
     
+    # المسار إلى الجذر (parent directory من src)
+    root_dir = os.path.dirname(basedir)
+    
     # Token للـ Business Manager الرئيسي (محمد رضا) - للحسابات A, B, C, Follow-up
     try:
-        main_token_path = os.path.join(basedir, 'facebook_access_token_main.txt')
+        main_token_path = os.path.join(root_dir, 'facebook_access_token_main.txt')
         with open(main_token_path, 'r') as f:
             tokens['main'] = f.read().strip()
     except Exception as e:
@@ -127,7 +130,7 @@ def load_facebook_access_tokens():
     
     # Token لـ Business Manager C1 (استرن ويجن) - للحساب C1
     try:
-        c1_token_path = os.path.join(basedir, 'facebook_access_token_c1.txt')
+        c1_token_path = os.path.join(root_dir, 'facebook_access_token_c1.txt')
         with open(c1_token_path, 'r') as f:
             tokens['c1'] = f.read().strip()
     except Exception as e:
