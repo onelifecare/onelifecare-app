@@ -163,6 +163,7 @@
             font-weight: 600;
             text-align: center;
             display: none;
+            white-space: pre-line; /* Support for multi-line text */
         }
 
         .message.success {
@@ -360,7 +361,16 @@
 
                 if (response.ok) {
                     responseMessage.classList.add("success");
-                    responseMessage.textContent = data.message;
+                    
+                    // Create detailed message with order count and total sales
+                    let detailedMessage = data.message;
+                    if (data.details) {
+                        detailedMessage += `\n\nتفاصيل الدفعة:`;
+                        detailedMessage += `\nعدد الأوردرات: ${data.details.order_count}`;
+                        detailedMessage += `\nإجمالي المبيعات: ${data.details.total_sales.toLocaleString('ar-EG')} ج`;
+                    }
+                    
+                    responseMessage.textContent = detailedMessage;
                     document.getElementById("orderText").value = ""; // Clear textarea on success
                 } else {
                     responseMessage.classList.add("error");

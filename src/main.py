@@ -96,7 +96,19 @@ def save_orders():
         conn.close()
         
         print(f"[DEBUG] Successfully saved {len(parsed_orders)} orders to database")
-        return jsonify({'message': f'تم حفظ {len(parsed_orders)} أوردرات بنجاح!', 'orders_saved': len(parsed_orders)}), 200
+        
+        # Calculate total sales for this batch
+        total_sales = sum(order['price'] for order in parsed_orders)
+        
+        return jsonify({
+            'message': f'تم حفظ {len(parsed_orders)} أوردرات بنجاح!', 
+            'orders_saved': len(parsed_orders),
+            'total_sales': total_sales,
+            'details': {
+                'order_count': len(parsed_orders),
+                'total_sales': total_sales
+            }
+        }), 200
     except Exception as e:
         return jsonify({'error': f'حدث خطأ: {str(e)}'}), 500
 
