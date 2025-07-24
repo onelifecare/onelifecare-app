@@ -112,15 +112,29 @@ def clear_data():
     except Exception as e:
         return jsonify({'error': f'حدث خطأ أثناء مسح البيانات: {str(e)}'}), 500
 
-def load_facebook_access_token():
-    """قراءة مفتاح الوصول لـ Facebook من الملف"""
+def load_facebook_access_tokens():
+    """قراءة مفاتيح الوصول لـ Facebook من الملفات"""
+    tokens = {}
+    
+    # Token للـ Business Manager الرئيسي (محمد رضا) - للحسابات A, B, C, Follow-up
     try:
-        token_file_path = os.path.join(basedir, 'facebook_access_token.txt')
-        with open(token_file_path, 'r') as f:
-            return f.read().strip()
+        main_token_path = os.path.join(basedir, 'facebook_access_token_main.txt')
+        with open(main_token_path, 'r') as f:
+            tokens['main'] = f.read().strip()
     except Exception as e:
-        print(f"Error loading Facebook access token: {e}")
-        return None
+        print(f"Error loading main Facebook access token: {e}")
+        tokens['main'] = None
+    
+    # Token لـ Business Manager C1 (استرن ويجن) - للحساب C1
+    try:
+        c1_token_path = os.path.join(basedir, 'facebook_access_token_c1.txt')
+        with open(c1_token_path, 'r') as f:
+            tokens['c1'] = f.read().strip()
+    except Exception as e:
+        print(f"Error loading C1 Facebook access token: {e}")
+        tokens['c1'] = None
+    
+    return tokens
 
 def load_ad_account_ids():
     """قراءة معرفات الحسابات الإعلانية من الملف"""
@@ -142,6 +156,16 @@ def load_ad_account_ids():
             "C1": "act_652648836844418"
         }
 
+def get_ad_account_business_manager():
+    """تحديد أي Business Manager ينتمي إليه كل حساب إعلاني"""
+    return {
+        "A": "main",    # Business Manager محمد رضا (1403067053854475)
+        "B": "main",    # Business Manager محمد رضا (1403067053854475)
+        "C": "main",    # Business Manager محمد رضا (1403067053854475)
+        "C1": "c1",     # Business Manager استرن ويجن (874046253686820)
+        "Follow-up": "main"  # Business Manager محمد رضا (1403067053854475)
+    }
+
 def get_facebook_ads_data():
     """سحب بيانات الصرف الحقيقية من Facebook Ads API"""
     data = {
@@ -152,25 +176,30 @@ def get_facebook_ads_data():
         "Follow-up": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0}
     }
 
-    # تحميل مفتاح الوصول ومعرفات الحسابات
-    access_token = load_facebook_access_token()
+    # تحميل مفاتيح الوصول ومعرفات الحسابات
+    access_tokens = load_facebook_access_tokens()
     ad_account_ids = load_ad_account_ids()
+    business_managers = get_ad_account_business_manager()
     
-    if not access_token:
-        print("No Facebook access token found, using dummy data")
-        return data
-
-    # تهيئة Facebook Ads API
-    try:
-        FacebookAdsApi.init(access_token=access_token)
-    except Exception as e:
-        print(f"Error initializing Facebook Ads API: {e}")
+    if not access_tokens['main'] and not access_tokens['c1']:
+        print("No Facebook access tokens found, using dummy data")
         return data
 
     # سحب بيانات الصرف لكل فريق
     for team, ad_account_id in ad_account_ids.items():
         if team in data:  # التأكد من أن الفريق موجود في البيانات
+            # تحديد أي Business Manager ينتمي إليه هذا الحساب
+            bm_key = business_managers.get(team, 'main')
+            access_token = access_tokens.get(bm_key)
+            
+            if not access_token:
+                print(f"No access token found for {team} (Business Manager: {bm_key})")
+                continue
+                
             try:
+                # تهيئة Facebook Ads API بالـ Token المناسب
+                FacebookAdsApi.init(access_token=access_token)
+                
                 account = AdAccount(ad_account_id)
                 # سحب بيانات اليوم الحالي
                 today = datetime.now().strftime("%Y-%m-%d")
