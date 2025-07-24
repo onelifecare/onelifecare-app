@@ -409,38 +409,49 @@ def parse_orders(order_text):
     return parsed_orders
 
 def format_detailed_report(data):
-    """تنسيق التقرير المفصل حسب المثال المعطى"""
+    """تنسيق التقرير المفصل مع إيموشنات وتنسيق جميل للواتساب"""
     cairo_tz = pytz.timezone('Africa/Cairo')
     now = datetime.now(cairo_tz)
     
-    # إضافة التاريخ والوقت في أعلى التقرير مع فاصل أقصر
-    report = f'تاريخ التقرير: {now.strftime("%Y-%m-%d")}\n'
-    report += f'الوقت: {now.strftime("%I:%M %p")}\n'
-    report += "===================\n\n"
+    # هيدر التقرير مع إيموشنات
+    report = "📊 *تقرير الأوردرات والإعلانات اليومي* 📊\n"
+    report += "═══════════════════════════════\n"
+    report += f"📅 التاريخ: {now.strftime('%Y-%m-%d')}\n"
+    report += f"🕐 الوقت: {now.strftime('%I:%M %p')}\n"
+    report += "═══════════════════════════════\n\n"
     
     # تفاصيل كل فريق
     teams = ['A', 'B', 'C', 'C1', 'Follow-up']
+    team_emojis = {
+        'A': '🔥',
+        'B': '⚡',
+        'C': '💎',
+        'C1': '🚀',
+        'Follow-up': '📞'
+    }
     
     for team in teams:
         team_data = data[team]
+        emoji = team_emojis.get(team, '📈')
         
         if team == 'A':
-            report += f"تيم (A)\n"
+            report += f"{emoji} *تيم (A)*\n"
         elif team == 'Follow-up':
-            report += f"تيم (فولو أب)\n"
+            report += f"{emoji} *تيم (فولو أب)*\n"
         else:
-            report += f"تيم ({team})\n"
+            report += f"{emoji} *تيم ({team})*\n"
         
         if team != 'Follow-up':
-            report += f"الصرف :/ {int(team_data['spend']):,} ج\n"
-            report += f"عدد الاوردرات / {team_data['orders']}\n"
-            report += f"التكلفة : / {team_data['held']:.2f} ج\n"
-            report += f"المبيعات (غير شاملة الشحن) :/ {team_data['sales']:,} ج\n"
-            report += f"ROAS :/ {team_data['roas']:.2f}\n"
-            report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
+            report += f"💰 الصرف: {int(team_data['spend']):,} ج\n"
+            report += f"📦 عدد الأوردرات: {team_data['orders']}\n"
+            report += f"💵 التكلفة: {team_data['held']:.2f} ج\n"
+            report += f"💸 المبيعات: {team_data['sales']:,} ج\n"
+            report += f"📊 ROAS: {team_data['roas']:.2f}\n"
+            report += "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
         else:
-            report += f"عدد الاوردرات:/ {team_data['orders']}\n"
-            report += f"المبيعات (غير شاملة الشحن) :/ {team_data['sales']:,} ج\n"
+            report += f"📦 عدد الأوردرات: {team_data['orders']}\n"
+            report += f"💸 المبيعات: {team_data['sales']:,} ج\n"
+            report += "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n"
 
     
     # إجماليات A + B
@@ -453,13 +464,13 @@ def format_detailed_report(data):
     ab_roas = ab_sales / ab_spend if ab_spend > 0 else 0
     ab_cost_per_order = ab_spend / ab_orders if ab_orders > 0 else 0
     
-    report += "\nــــــــــــــــــــــــــــــــــــــــــــ\n"
-    report += "اجماليات (A) + (B)\n"
-    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {int(ab_spend):,} ج\n"
-    report += f"إجمالي عام اوردات :/ {ab_orders}\n"
-    report += f"التكلفة / {ab_cost_per_order:.2f} ج\n"
-    report += f"إجمالي المبيعات (A+B) :/ {ab_sales:,} ج\n"
-    report += f"ROAS (A+B) :/ {ab_roas:.2f}\n\n"
+    report += "\n🔥⚡ *إجماليات (A) + (B)* ⚡🔥\n"
+    report += "═══════════════════════════════\n"
+    report += f"💰 إجمالي الصرف: {int(ab_spend):,} ج\n"
+    report += f"📦 إجمالي الأوردرات: {ab_orders}\n"
+    report += f"💵 متوسط التكلفة: {ab_cost_per_order:.2f} ج\n"
+    report += f"💸 إجمالي المبيعات: {ab_sales:,} ج\n"
+    report += f"📊 ROAS: {ab_roas:.2f}\n\n"
     
     # إجماليات C + C1
     c_data = data['C']
@@ -471,13 +482,13 @@ def format_detailed_report(data):
     cc1_roas = cc1_sales / cc1_spend if cc1_spend > 0 else 0
     cc1_cost_per_order = cc1_spend / cc1_orders if cc1_orders > 0 else 0
 
-    report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
-    report += "اجماليات (C) + (C1)\n"
-    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {int(cc1_spend):,} ج\n"
-    report += f"إجمالي عام اوردات :/ {cc1_orders}\n"
-    report += f"التكلفة / {cc1_cost_per_order:.2f} ج\n"
-    report += f"إجمالي المبيعات (C+C1) :/ {cc1_sales:,} ج\n"
-    report += f"ROAS (C+C1) :/ {cc1_roas:.2f}\n\n"
+    report += "💎🚀 *إجماليات (C) + (C1)* 🚀💎\n"
+    report += "═══════════════════════════════\n"
+    report += f"💰 إجمالي الصرف: {int(cc1_spend):,} ج\n"
+    report += f"📦 إجمالي الأوردرات: {cc1_orders}\n"
+    report += f"💵 متوسط التكلفة: {cc1_cost_per_order:.2f} ج\n"
+    report += f"💸 إجمالي المبيعات: {cc1_sales:,} ج\n"
+    report += f"📊 ROAS: {cc1_roas:.2f}\n\n"
 
     # إجماليات عامة (بدون Follow-up في الصرف)
     total_spend = sum(team_data['spend'] for team_name, team_data in data.items() 
@@ -487,13 +498,18 @@ def format_detailed_report(data):
     total_roas = total_sales / total_spend if total_spend > 0 else 0
     total_cost_per_order = total_spend / total_orders if total_orders > 0 else 0
     
-    report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
-    report += "اجماليات عامة\n"
-    report += f"إجمالي الصرف الكلي :/ {int(total_spend):,} ج\n"
-    report += f"إجمالي الأوردرات الكلي :/ {total_orders}\n"
-    report += f"متوسط التكلفة الكلي :/ {total_cost_per_order:.2f} ج\n"
-    report += f"إجمالي المبيعات الكلي :/ {total_sales:,} ج\n"
-    report += f"ROAS الكلي :/ {total_roas:.2f}\n"
+    report += "🌟 *الإجماليات العامة* 🌟\n"
+    report += "═══════════════════════════════\n"
+    report += f"💰 إجمالي الصرف الكلي: {int(total_spend):,} ج\n"
+    report += f"📦 إجمالي الأوردرات الكلي: {total_orders}\n"
+    report += f"💵 متوسط التكلفة الكلي: {total_cost_per_order:.2f} ج\n"
+    report += f"💸 إجمالي المبيعات الكلي: {total_sales:,} ج\n"
+    report += f"📊 ROAS الكلي: {total_roas:.2f}\n\n"
+    
+    # فوتر التقرير
+    report += "═══════════════════════════════\n"
+    report += "✨ *OneLifeCare* - نحو حياة أفضل ✨\n"
+    report += "═══════════════════════════════"
     
     return report
 
