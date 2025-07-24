@@ -316,35 +316,59 @@ def parse_whatsapp_orders(whatsapp_text):
 
 def parse_order_text(order_text):
     """
-    Parse individual order text to extract def parse_order_text(order_text):
+    Parse individual order text to extract sales amount and agent name
+    Improved version to handle more patterns including multiple additions
+    """
     print(f"[DEBUG] Starting parse_order_text for order: {order_text[:200]}...")
     sales_amount = 0
     agent_name = ""
     
-    # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
+    # Extract 'المبلغ' - look for various patterns
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d\.,]+)(?:\s*ج)?(?:\s*\+?\s*([\d\.,]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and \'ج\'
-        r"المبلغ\s*:\s*([\d\.,]+)"                            # Simple pattern
+        # Pattern with multiple additions: "1190 + 250 + 150"
+        r"المبلغ\s*:\s*([\d,\.]+(?:\s*\+\s*[\d,\.]+)*)",
+        # Pattern with م.ش: "1890+ 75م.ش" or "1890 + 75 م.ش"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",
+        # Pattern with شحن: "1190 + 75 شحن"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",
+        # Pattern with +: "1190 + 65"
+        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",
+        # Pattern with ج: "1190ج + 75"
+        r"المبلغ\s*:\s*([\d,\.]+)ج?\s*\+?\s*([\d,\.]*)",
+        # Simple pattern: "1190"
+        r"المبلغ\s*:\s*([\d,\.]+)",
     ]
     
     found_amount = False
-    for pattern in amount_patterns:
+    for i, pattern in enumerate(amount_patterns):
         amount_match = re.search(pattern, order_text)
         if amount_match:
-            print(f"[DEBUG] Amount pattern matched: {pattern}")
-            product_price_str = amount_match.group(1).replace(",", "")
-            try:
-                sales_amount = float(product_price_str)
+            print(f"[DEBUG] Amount pattern {i} matched: {amount_match.group(0)}")
+            
+            if i == 0:  # Multiple additions pattern
+                # Extract all numbers and sum them
+                numbers = re.findall(r'[\d,\.]+', amount_match.group(1))
+                total = 0
+                for num in numbers:
+                    total += float(num.replace(",", ""))
+                sales_amount = total
+                print(f"[DEBUG] Multiple additions - numbers: {numbers}, total: {total}")
                 found_amount = True
-                print(f"[DEBUG] Extracted sales amount: {sales_amount}")
-            except ValueError as ve:
-                print(f"[ERROR] Could not convert \'{product_price_str}\' to float: {ve}")
+            else:
+                # Single number pattern
+                try:
+                    product_price_str = amount_match.group(1).replace(",", "")
+                    sales_amount = float(product_price_str)
+                    print(f"[DEBUG] Extracted sales amount: {sales_amount}")
+                    found_amount = True
+                except ValueError as ve:
+                    print(f"[ERROR] Could not convert '{product_price_str}' to float: {ve}")
             break
     
     if not found_amount:
         print("[DEBUG] No sales amount found with current patterns.")
 
-    # Extract \'الايچينت\'
+    # Extract 'الايچينت'
     agent_patterns = [
         r"الايچينت\s*:\s*(.+?)(?:\n|$)",
         r"الايچينت\s*:\s*(.+?)(?:\s|$)"
