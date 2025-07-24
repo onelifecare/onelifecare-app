@@ -188,6 +188,11 @@ def get_facebook_ads_data():
     # سحب بيانات الصرف لكل فريق
     for team, ad_account_id in ad_account_ids.items():
         if team in data:  # التأكد من أن الفريق موجود في البيانات
+            # تيم Follow-up ليس له صرف، نتركه صفر
+            if team == "Follow-up":
+                print(f"Skipping spend fetch for {team} - no spend required")
+                continue
+                
             # تحديد أي Business Manager ينتمي إليه هذا الحساب
             bm_key = business_managers.get(team, 'main')
             access_token = access_tokens.get(bm_key)
