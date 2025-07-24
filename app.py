@@ -311,15 +311,18 @@ def parse_order_text(order_text):
     
     # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d,\.]+)(?:\s*ج)?(?:\s*\+?\s*([\d,\.]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and 'ج'
-        r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
+        r"المبلغ\s*:\s*([\d\.,]+)(?:\s*ج)?(?:\s*\+?\s*([\d\.,]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and 'ج'
+        r"المبلغ\s*:\s*([\d\.,]+)"                            # Simple pattern
     ]
     
     for pattern in amount_patterns:
         amount_match = re.search(pattern, order_text)
         if amount_match:
-            product_price = float(amount_match.group(1).replace(",", ""))
-            sales_amount = product_price  # Sales excluding shipping
+            # Handle both comma and dot as decimal separators, then remove commas for float conversion
+            product_price_str = amount_match.group(1).replace(",", "")
+            # If the original string used a comma as a decimal, it's now a dot. If it used a dot, it's still a dot.
+            # This ensures float conversion is correct.
+            sales_amount = float(product_price_str)
             break
 
     # Extract \'الايچينت\'
