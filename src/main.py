@@ -222,9 +222,19 @@ def generate_report():
         print(f"[DEBUG] Facebook data before update: {facebook_data}")
         
         # Update facebook_data with actual orders and sales from DB
-        for team in facebook_data:
-            facebook_data[team]["orders"] = orders_by_team.get(team, 0)
-            facebook_data[team]["sales"] = sales_by_team.get(team, 0)
+        # Map team names from DB to facebook_data keys
+        team_mapping = {
+            'Team A': 'A',
+            'Team B': 'B', 
+            'Team C': 'C',
+            'Team C1': 'C1',
+            'Follow-up': 'Follow-up'
+        }
+        
+        for db_team, fb_team in team_mapping.items():
+            if fb_team in facebook_data:
+                facebook_data[fb_team]["orders"] = orders_by_team.get(db_team, 0)
+                facebook_data[fb_team]["sales"] = sales_by_team.get(db_team, 0)
 
         # Calculate held and ROAS based on actual data
         for team_name, data in facebook_data.items():
