@@ -69,6 +69,7 @@ def save_orders():
             return jsonify({'error': 'الرجاء اختيار الفريق وإدخال نصوص الأوردرات.'}), 400
 
         parsed_orders = parse_orders(orders_text)
+        print(f"[DEBUG] Parsed {len(parsed_orders)} orders from input text")
         
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -76,20 +77,25 @@ def save_orders():
         # Aggregate orders and sales by team from parsed_orders
         team_data = {}
         for order in parsed_orders:
+            print(f"[DEBUG] Processing order: customer={order['customer_name']}, price={order['price']}")
             # Assuming the team is passed from the frontend and is consistent for the batch
             if team not in team_data:
                 team_data[team] = {'count': 0, 'sales': 0}
             team_data[team]['count'] += 1
             team_data[team]['sales'] += order['price']
 
+        print(f"[DEBUG] Team data to save: {team_data}")
+        
         for team_name, data in team_data.items():
             if data['count'] > 0:
+                print(f"[DEBUG] Inserting into DB: team={team_name}, count={data['count']}, sales={data['sales']}")
                 cursor.execute('INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)', 
                              (team_name, data['count'], data['sales']))
         
         conn.commit()
         conn.close()
         
+        print(f"[DEBUG] Successfully saved {len(parsed_orders)} orders to database")
         return jsonify({'message': f'تم حفظ {len(parsed_orders)} أوردرات بنجاح!', 'orders_saved': len(parsed_orders)}), 200
     except Exception as e:
         return jsonify({'error': f'حدث خطأ: {str(e)}'}), 500
