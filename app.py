@@ -306,7 +306,7 @@ def parse_order_text(order_text):
     
     # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d,\.]+)(?:\s*\+\s*([\d,\.]+)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations
+        r"المبلغ\s*:\s*([\d,\.]+)(?:\s*ج)?(?:\s*\+?\s*([\d,\.]*)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations, and 'ج'
         r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
     ]
     
