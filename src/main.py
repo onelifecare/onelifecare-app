@@ -354,7 +354,7 @@ def format_detailed_report(data):
             report += f"تيم ({team})\n"
         
         if team != 'Follow-up':
-            report += f"الصرف :/ {team_data['spend']:,} ج\n"
+            report += f"الصرف :/ {int(team_data['spend']):,} ج\n"
             report += f"عدد الاوردرات / {team_data['orders']}\n"
             report += f"التكلفة : / {team_data['held']:.2f} ج\n"
             report += f"المبيعات (غير شاملة الشحن) :/ {team_data['sales']:,} ج\n"
@@ -377,7 +377,7 @@ def format_detailed_report(data):
     
     report += "\nــــــــــــــــــــــــــــــــــــــــــــ\n"
     report += "اجماليات (A) + (B)\n"
-    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {ab_spend:,} ج\n"
+    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {int(ab_spend):,} ج\n"
     report += f"إجمالي عام اوردات :/ {ab_orders}\n"
     report += f"التكلفة / {ab_cost_per_order:.2f} ج\n"
     report += f"إجمالي المبيعات (A+B) :/ {ab_sales:,} ج\n"
@@ -395,14 +395,15 @@ def format_detailed_report(data):
 
     report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
     report += "اجماليات (C) + (C1)\n"
-    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {cc1_spend:,} ج\n"
+    report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {int(cc1_spend):,} ج\n"
     report += f"إجمالي عام اوردات :/ {cc1_orders}\n"
     report += f"التكلفة / {cc1_cost_per_order:.2f} ج\n"
     report += f"إجمالي المبيعات (C+C1) :/ {cc1_sales:,} ج\n"
     report += f"ROAS (C+C1) :/ {cc1_roas:.2f}\n\n"
 
-    # إجماليات عامة
-    total_spend = sum(team_data['spend'] for team_data in data.values() if team_data['spend'] is not None)
+    # إجماليات عامة (بدون Follow-up في الصرف)
+    total_spend = sum(team_data['spend'] for team_name, team_data in data.items() 
+                     if team_name != 'Follow-up' and team_data['spend'] is not None)
     total_orders = sum(team_data['orders'] for team_data in data.values() if team_data['orders'] is not None)
     total_sales = sum(team_data['sales'] for team_data in data.values() if team_data['sales'] is not None)
     total_roas = total_sales / total_spend if total_spend > 0 else 0
@@ -410,7 +411,7 @@ def format_detailed_report(data):
     
     report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
     report += "اجماليات عامة\n"
-    report += f"إجمالي الصرف الكلي :/ {total_spend:,} ج\n"
+    report += f"إجمالي الصرف الكلي :/ {int(total_spend):,} ج\n"
     report += f"إجمالي الأوردرات الكلي :/ {total_orders}\n"
     report += f"متوسط التكلفة الكلي :/ {total_cost_per_order:.2f} ج\n"
     report += f"إجمالي المبيعات الكلي :/ {total_sales:,} ج\n"
