@@ -181,8 +181,8 @@ def get_ad_account_business_manager():
         "Follow-up": "main"  # Business Manager محمد رضا (1403067053854475)
     }
 
-def get_facebook_ads_data():
-    """سحب بيانات الصرف الحقيقية من Facebook Ads API"""
+def get_facebook_ads_data(selected_date=None):
+    """سحب بيانات الصرف الحقيقية من Facebook Ads API للتاريخ المحدد"""
     data = {
         "A": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
         "B": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
@@ -190,6 +190,12 @@ def get_facebook_ads_data():
         "C1": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0},
         "Follow-up": {"spend": 0, "orders": 0, "held": 0, "sales": 0, "roas": 0}
     }
+
+    # تحديد التاريخ المطلوب - إذا لم يتم تحديده، استخدم اليوم الحالي
+    if not selected_date:
+        selected_date = datetime.now().strftime("%Y-%m-%d")
+    
+    print(f"[DEBUG] Fetching Facebook Ads data for date: {selected_date}")
 
     # تحميل مفاتيح الوصول ومعرفات الحسابات
     access_tokens = load_facebook_access_tokens()
@@ -221,24 +227,23 @@ def get_facebook_ads_data():
                 FacebookAdsApi.init(access_token=access_token)
                 
                 account = AdAccount(ad_account_id)
-                # سحب بيانات اليوم الحالي
-                today = datetime.now().strftime("%Y-%m-%d")
+                # سحب بيانات التاريخ المحدد
                 insights = account.get_insights(
                     fields=["spend"],
                     params={
-                        "time_range": {"since": today, "until": today}
+                        "time_range": {"since": selected_date, "until": selected_date}
                     }
                 )
                 
                 if insights and len(insights) > 0:
                     spend_value = insights[0].get("spend", "0")
                     data[team]["spend"] = float(spend_value)
-                    print(f"Successfully fetched spend for {team}: {spend_value}")
+                    print(f"Successfully fetched spend for {team} on {selected_date}: {spend_value}")
                 else:
-                    print(f"No insights data found for {team} ({ad_account_id})")
+                    print(f"No insights data found for {team} ({ad_account_id}) on {selected_date}")
                     
             except Exception as e:
-                print(f"Error fetching data for {team} ({ad_account_id}): {e}")
+                print(f"Error fetching data for {team} ({ad_account_id}) on {selected_date}: {e}")
                 # في حالة الخطأ، نحتفظ بالقيمة الافتراضية 0
 
     return data
@@ -246,18 +251,39 @@ def get_facebook_ads_data():
 @app.route('/api/generate_report', methods=['GET'])
 def generate_report():
     try:
+        # Get selected date from query parameter, default to today
+        selected_date = request.args.get('date')
+        if not selected_date:
+            # Default to today's date
+            cairo_tz = pytz.timezone('Africa/Cairo')
+            today = datetime.now(cairo_tz).date()
+            selected_date = today.strftime('%Y-%m-%d')
+        
+        print(f"[DEBUG] Generating report for date: {selected_date}")
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # جلب إجمالي الأوردرات والمبيعات لكل فريق
-        print("[DEBUG] Executing query: SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team ORDER BY team")
-        cursor.execute('SELECT team, SUM(order_count), SUM(sales) FROM orders GROUP BY team ORDER BY team')
+        # جلب إجمالي الأوردرات والمبيعات لكل فريق للتاريخ المحدد
+        print(f"[DEBUG] Executing query for date: {selected_date}")
+        cursor.execute('''
+            SELECT team, SUM(order_count), SUM(sales) 
+            FROM orders 
+            WHERE DATE(timestamp) = ? 
+            GROUP BY team 
+            ORDER BY team
+        ''', (selected_date,))
         team_data = cursor.fetchall()
-        print(f"[DEBUG] Raw data from database: {team_data}")
+        print(f"[DEBUG] Raw data from database for {selected_date}: {team_data}")
         
-        # إضافة DEBUG لعرض جميع السجلات في قاعدة البيانات
-        print("[DEBUG] Fetching ALL records from database:")
-        cursor.execute('SELECT id, team, order_count, sales, timestamp FROM orders ORDER BY timestamp')
+        # إضافة DEBUG لعرض جميع السجلات للتاريخ المحدد
+        print(f"[DEBUG] Fetching ALL records for date {selected_date}:")
+        cursor.execute('''
+            SELECT id, team, order_count, sales, timestamp 
+            FROM orders 
+            WHERE DATE(timestamp) = ? 
+            ORDER BY timestamp
+        ''', (selected_date,))
         all_records = cursor.fetchall()
         for record in all_records:
             print(f"[DEBUG] Record: ID={record[0]}, Team={record[1]}, Orders={record[2]}, Sales={record[3]}, Time={record[4]}")
@@ -268,14 +294,14 @@ def generate_report():
             orders_by_team[team] = order_count if order_count else 0
             sales_by_team[team] = sales if sales else 0
         
-        print(f"[DEBUG] Orders by team: {orders_by_team}")
-        print(f"[DEBUG] Sales by team: {sales_by_team}")
+        print(f"[DEBUG] Orders by team for {selected_date}: {orders_by_team}")
+        print(f"[DEBUG] Sales by team for {selected_date}: {sales_by_team}")
         
         conn.close()
 
-        # Get simplified Facebook Ads data
-        facebook_data = get_facebook_ads_data()
-        print(f"[DEBUG] Facebook data before update: {facebook_data}")
+        # Get Facebook Ads data for the selected date
+        facebook_data = get_facebook_ads_data(selected_date)
+        print(f"[DEBUG] Facebook data for {selected_date} before update: {facebook_data}")
         
         # Update facebook_data with actual orders and sales from DB
         # Map team names from DB to facebook_data keys
@@ -301,10 +327,10 @@ def generate_report():
                 # For follow-up team, no spend calculation needed
                 pass
 
-        print(f"[DEBUG] Final facebook_data after update: {facebook_data}")
+        print(f"[DEBUG] Final facebook_data for {selected_date} after update: {facebook_data}")
 
         # تنسيق التقرير
-        report_text = format_detailed_report(facebook_data)
+        report_text = format_detailed_report(facebook_data, selected_date)
         
         return jsonify({
             "success": True,
@@ -424,15 +450,24 @@ def parse_orders(order_text):
     print(f"[DEBUG] Successfully parsed {len(parsed_orders)} orders from {len(order_blocks)} blocks")
     return parsed_orders
 
-def format_detailed_report(data):
+def format_detailed_report(data, selected_date=None):
     """تنسيق التقرير المفصل مع إيموشنات وتنسيق جميل للواتساب"""
     cairo_tz = pytz.timezone('Africa/Cairo')
     now = datetime.now(cairo_tz)
     
+    # تحديد التاريخ المعروض في التقرير
+    if selected_date:
+        # تحويل التاريخ المختار إلى تنسيق جميل
+        from datetime import datetime as dt
+        date_obj = dt.strptime(selected_date, '%Y-%m-%d')
+        display_date = date_obj.strftime('%Y-%m-%d')
+    else:
+        display_date = now.strftime('%Y-%m-%d')
+    
     # هيدر التقرير مع إيموشنات
     report = "📊 *تقرير الأوردرات والإعلانات اليومي* 📊\n"
     report += "═══════════════════════════════\n"
-    report += f"📅 التاريخ: {now.strftime('%Y-%m-%d')}\n"
+    report += f"📅 التاريخ: {display_date}\n"
     report += f"🕐 الوقت: {now.strftime('%I:%M %p')}\n"
     report += "═══════════════════════════════\n\n"
     

@@ -149,6 +149,25 @@
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
         }
 
+        .btn-quick-date {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-width: 80px;
+            margin: 0 5px;
+        }
+
+        .btn-quick-date:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+        }
+
         .btn-danger {
             background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
         }
@@ -299,6 +318,17 @@
         <div id="report-page" class="page">
             <h1>تقرير الأوردرات والإعلانات</h1>
             
+            <!-- Date Selection Section -->
+            <div class="date-selection" style="margin-bottom: 20px; text-align: center;">
+                <label for="reportDate" style="font-size: 16px; font-weight: 600; color: #333; margin-left: 10px;">📅 اختر التاريخ:</label>
+                <input type="date" id="reportDate" style="padding: 8px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin: 0 10px;">
+                
+                <div class="quick-date-buttons" style="margin-top: 10px;">
+                    <button onclick="setToday()" class="btn-quick-date">اليوم</button>
+                    <button onclick="setYesterday()" class="btn-quick-date">الأمس</button>
+                </div>
+            </div>
+            
             <div class="button-group">
                 <button onclick="loadReport()" class="btn-success">تحديث التقرير</button>
                 <button onclick="clearAllData()" class="btn-danger">مسح جميع البيانات</button>
@@ -425,18 +455,23 @@
         async function loadReport() {
             const reportContainer = document.getElementById("reportContainer");
             const reportActions = document.getElementById("reportActions");
+            const reportDateInput = document.getElementById("reportDate");
+            
+            // Get selected date or use today as default
+            const selectedDate = reportDateInput ? reportDateInput.value : new Date().toISOString().split('T')[0];
             
             // Hide action buttons and show loading state
             reportActions.style.display = "none";
             reportContainer.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    جاري تحميل التقرير...
+                    جاري تحميل التقرير لتاريخ ${selectedDate}...
                 </div>
             `;
 
             try {
-                const response = await fetch("/api/generate_report");
+                // Send selected date to the API
+                const response = await fetch(`/api/generate_report?date=${selectedDate}`);
                 const data = await response.json();
 
                 if (response.ok) {
@@ -521,6 +556,13 @@
                 loadReport();
             }
             
+            // Initialize date picker with today's date
+            const reportDateInput = document.getElementById('reportDate');
+            if (reportDateInput) {
+                const today = new Date();
+                reportDateInput.value = today.toISOString().split('T')[0];
+            }
+            
             // Initialize character counter
             const orderTextArea = document.getElementById('orderText');
             const charCounter = document.getElementById('charCounter');
@@ -546,6 +588,20 @@
             // Initial update
             updateCharCounter();
         });
+
+        // Quick date selection functions
+        function setToday() {
+            const reportDateInput = document.getElementById('reportDate');
+            const today = new Date();
+            reportDateInput.value = today.toISOString().split('T')[0];
+        }
+
+        function setYesterday() {
+            const reportDateInput = document.getElementById('reportDate');
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            reportDateInput.value = yesterday.toISOString().split('T')[0];
+        }
     </script>
 </body>
 </html>
