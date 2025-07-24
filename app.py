@@ -281,7 +281,8 @@ def parse_whatsapp_orders(whatsapp_text):
     
     # Split by WhatsApp timestamp pattern [date, time] ~ sender:
     # Pattern: [‏17‏/7‏/2025، 12:37:42 ص] ~ sender name:
-    timestamp_pattern = r"\u200f\[\u200f\d+\u200f\/\u200f\d+\u200f\/\u200f\d+،\s*\d+:\d+:\d+\s*[صم]\]\s*~?\s*[^:]+:"
+    # Updated pattern to be more flexible with unicode characters and spaces
+    timestamp_pattern = r"\u200f?\[\u200f?\d{1,2}\u200f?\/\u200f?\d{1,2}\u200f?\/\u200f?\d{2,4}،?\s*\d{1,2}:\d{2}(?::\d{2})?\s*[صمPMAM]?\u200f?\]\s*~?\s*[^:]+:\s*"
     
     # Split the text by timestamps
     order_blocks = re.split(timestamp_pattern, whatsapp_text)
@@ -305,9 +306,7 @@ def parse_order_text(order_text):
     
     # Extract \'المبلغ\' - look for patterns like "المبلغ : 1890+ 75م.ش" or "المبلغ : 1190 + 65"
     amount_patterns = [
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+?\s*([\d,\.]*)\s*م\.ش",  # Pattern with م.ش
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)",         # Pattern with +
-        r"المبلغ\s*:\s*([\d,\.]+)\s*\+\s*([\d,\.]+)\s*شحن",   # Pattern with شحن
+        r"المبلغ\s*:\s*([\d,\.]+)(?:\s*\+\s*([\d,\.]+)\s*(?:م\.ش|شحن)?)?",  # Handles with or without shipping, and different shipping notations
         r"المبلغ\s*:\s*([\d,\.]+)"                            # Simple pattern
     ]
     
@@ -318,7 +317,7 @@ def parse_order_text(order_text):
             sales_amount = product_price  # Sales excluding shipping
             break
 
-    # Extract \'الايچينت\' or \'الايچينت :\'
+    # Extract \'الايچينت\'
     agent_patterns = [
         r"الايچينت\s*:\s*(.+?)(?:\n|$)",
         r"الايچينت\s*:\s*(.+?)(?:\s|$)"
@@ -460,7 +459,7 @@ def generate_report_data_and_format():
         report += f"تيم (فولو أب)\n"
         report += f"عدد الاوردرات:/ {follow_up_orders}\n"
         report += f"المبيعات (غير شاملة الشحن) :/ {follow_up_sales:,.0f}\n"
-        report += "  ________________\n"
+        report += "ــــــــــــــــــــــــــــــــــــــــــــ\n"
         overall_total_orders += follow_up_orders
         overall_total_sales += follow_up_sales
 
@@ -470,8 +469,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_ab = 0
 
-    report += "________👇اجماليات 👇_____\n"
-    report += "(A) + (B)\n"
+    report += "\nاجماليات (A) + (B)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_ab:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_ab}\n"
     report += f"ممسوك / {total_cost_per_order_ab:,.0f}\n"
@@ -485,7 +483,7 @@ def generate_report_data_and_format():
     else:
         total_cost_per_order_cc1 = 0
 
-    report += "\n(C) + (C1)\n"
+    report += "\nاجماليات (C) + (C1)\n"
     report += f"توتال الصرف الاوردرات ( إجمالي ) :/ {total_spend_cc1:,.0f}\n"
     report += f"إجمالي عام اوردات :/ {total_orders_cc1}\n"
     report += f"ممسوك / {total_cost_per_order_cc1:,.0f}\n"
@@ -497,7 +495,7 @@ def generate_report_data_and_format():
     overall_cost_per_order = overall_total_spend / overall_total_orders if overall_total_orders > 0 else 0
     overall_roas = overall_total_sales / overall_total_spend if overall_total_spend > 0 else 0
 
-    report += "\n________👇اجماليات عامة 👇_____\n"
+    report += "\nاجماليات عامة\n"
     report += f"إجمالي الصرف الكلي :/ {overall_total_spend:,.0f}\n"
     report += f"إجمالي الأوردرات الكلي :/ {overall_total_orders}\n"
     report += f"متوسط ممسوك الكلي :/ {overall_cost_per_order:,.0f}\n"
