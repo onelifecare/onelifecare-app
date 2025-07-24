@@ -206,6 +206,13 @@ def generate_report():
         team_data = cursor.fetchall()
         print(f"[DEBUG] Raw data from database: {team_data}")
         
+        # إضافة DEBUG لعرض جميع السجلات في قاعدة البيانات
+        print("[DEBUG] Fetching ALL records from database:")
+        cursor.execute('SELECT id, team, order_count, sales, timestamp FROM orders ORDER BY timestamp')
+        all_records = cursor.fetchall()
+        for record in all_records:
+            print(f"[DEBUG] Record: ID={record[0]}, Team={record[1]}, Orders={record[2]}, Sales={record[3]}, Time={record[4]}")
+        
         orders_by_team = {}
         sales_by_team = {}
         for team, order_count, sales in team_data:
