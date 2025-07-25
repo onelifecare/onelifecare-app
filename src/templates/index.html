@@ -571,21 +571,50 @@
                 modalWarning.style.display = 'none';
             }
             
+            // Store data for later use in success message
+            window.lastOrderData = {
+                team: teamNames[team] || team,
+                details: details
+            };
+            
             // Show modal
             modal.style.display = 'block';
         }
 
-        // Close success modal
+        // Close success modal and show persistent success message
         function closeSuccessModal() {
             const modal = document.getElementById('successModal');
+            const responseMessage = document.getElementById("responseMessage");
+            
             modal.style.display = 'none';
+            
+            // Show persistent success message with same data
+            if (window.lastOrderData) {
+                const data = window.lastOrderData;
+                responseMessage.className = "message success";
+                
+                let detailedMessage = "تم حفظ الأوردرات بنجاح! ✅";
+                detailedMessage += `\n\n📊 ملخص البيانات المضافة:`;
+                detailedMessage += `\n👥 الفريق: ${data.team}`;
+                
+                if (data.details) {
+                    detailedMessage += `\n📦 عدد الأوردرات: ${data.details.order_count}`;
+                    detailedMessage += `\n💰 إجمالي المبيعات: ${data.details.total_sales.toLocaleString('ar-EG')} ج`;
+                }
+                
+                responseMessage.textContent = detailedMessage;
+                responseMessage.style.display = "block";
+                
+                // Clear stored data
+                window.lastOrderData = null;
+            }
         }
 
         // Close modal when clicking outside
         window.onclick = function(event) {
             const modal = document.getElementById('successModal');
             if (event.target === modal) {
-                modal.style.display = 'none';
+                closeSuccessModal(); // Use the same function to show persistent message
             }
         }
 
