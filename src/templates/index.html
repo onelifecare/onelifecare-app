@@ -812,11 +812,15 @@
                 loadReport();
             }
             
-            // Initialize date picker with today's date
+            // Initialize date picker with today's date (Cairo timezone)
             const reportDateInput = document.getElementById('reportDate');
             if (reportDateInput) {
+                // Use Cairo timezone (UTC+2)
                 const today = new Date();
-                reportDateInput.value = today.toISOString().split('T')[0];
+                const cairoOffset = 2 * 60; // Cairo is UTC+2 (120 minutes)
+                const utc = today.getTime() + (today.getTimezoneOffset() * 60000);
+                const cairoTime = new Date(utc + (cairoOffset * 60000));
+                reportDateInput.value = cairoTime.toISOString().split('T')[0];
             }
             
             // Initialize character counter
@@ -848,15 +852,23 @@
         // Quick date selection functions
         function setToday() {
             const reportDateInput = document.getElementById('reportDate');
+            // Use Cairo timezone (UTC+2)
             const today = new Date();
-            reportDateInput.value = today.toISOString().split('T')[0];
+            const cairoOffset = 2 * 60; // Cairo is UTC+2 (120 minutes)
+            const utc = today.getTime() + (today.getTimezoneOffset() * 60000);
+            const cairoTime = new Date(utc + (cairoOffset * 60000));
+            reportDateInput.value = cairoTime.toISOString().split('T')[0];
         }
 
         function setYesterday() {
             const reportDateInput = document.getElementById('reportDate');
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            reportDateInput.value = yesterday.toISOString().split('T')[0];
+            // Use Cairo timezone (UTC+2)
+            const today = new Date();
+            const cairoOffset = 2 * 60; // Cairo is UTC+2 (120 minutes)
+            const utc = today.getTime() + (today.getTimezoneOffset() * 60000);
+            const cairoTime = new Date(utc + (cairoOffset * 60000));
+            cairoTime.setDate(cairoTime.getDate() - 1); // Get yesterday
+            reportDateInput.value = cairoTime.toISOString().split('T')[0];
         }
     </script>
 
