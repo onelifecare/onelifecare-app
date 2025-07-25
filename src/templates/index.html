@@ -245,6 +245,122 @@
                 max-width: 300px;
             }
         }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease;
+            position: relative;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .modal-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .modal-stats {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .modal-encouragement {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .modal-message {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #0c5460;
+            line-height: 1.6;
+        }
+
+        .modal-close {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .modal-close:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -359,18 +475,131 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    responseMessage.classList.add("success");
-                    responseMessage.textContent = data.message;
+                    // Show success modal instead of message
+                    showSuccessModal(team, data.details, orderText);
                     document.getElementById("orderText").value = ""; // Clear textarea on success
                 } else {
                     responseMessage.classList.add("error");
                     responseMessage.textContent = data.error || "حدث خطأ غير معروف.";
+                    responseMessage.style.display = "block";
                 }
             } catch (error) {
                 responseMessage.classList.add("error");
                 responseMessage.textContent = "حدث خطأ في الاتصال بالخادم: " + error.message;
+                responseMessage.style.display = "block";
             }
-            responseMessage.style.display = "block";
+        }
+
+        // 30 encouraging messages for team leaders
+        const encouragingMessages = [
+            "🌟 أنت قائد استثنائي، فريقك محظوظ بوجودك!",
+            "💎 كل أوردر خطوة نحو النجاح، واصل التميز!",
+            "🔥 طاقتك الإيجابية تنعكس على نتائج الفريق!",
+            "🏆 أحسنت! فريقك يحقق نتائج ممتازة!",
+            "⭐ استمر في العمل الرائع، النجاح يحتاج لقائد مثلك!",
+            "🚀 مع كل أوردر تقترب أكثر من تحقيق الأهداف!",
+            "💪 قوة إرادتك تلهم الجميع للعطاء أكثر!",
+            "🎯 دقتك في المتابعة تصنع الفارق!",
+            "✨ إنجازاتك اليوم تبني مستقبل أفضل!",
+            "🌈 تفاؤلك وحماسك يضيء طريق النجاح!",
+            "🔝 أنت في القمة، والأفضل قادم!",
+            "💫 كل يوم تثبت أنك الخيار الأمثل لقيادة الفريق!",
+            "🎊 فخورون بإنجازاتك وإنجازات فريقك!",
+            "🌟 موهبتك في القيادة تظهر في كل نتيجة!",
+            "🔥 حماسك معدي ويحفز الجميع للتفوق!",
+            "💎 أنت جوهرة نادرة في عالم القيادة!",
+            "🏅 تستحق كل التقدير على هذا الأداء المتميز!",
+            "⚡ سرعة استجابتك ومتابعتك مذهلة!",
+            "🌺 أسلوبك الراقي في القيادة يحقق المعجزات!",
+            "🎨 تحول التحديات إلى فرص بإبداع منقطع النظير!",
+            "🔮 رؤيتك الثاقبة تقود الفريق نحو النجاح!",
+            "🌟 كل قرار تتخذه يعكس حكمتك وخبرتك!",
+            "💝 عطاؤك بلا حدود وتأثيرك إيجابي على الجميع!",
+            "🎯 تركيزك على الهدف يحقق نتائج استثنائية!",
+            "🌊 تدفق الأوردرات يعكس نجاح استراتيجيتك!",
+            "🔥 شغفك بالعمل يشعل روح الحماس في الفريق!",
+            "💪 قوتك في اتخاذ القرارات تقود للنجاح!",
+            "🌟 أنت نجم ساطع في سماء OneLifeCare!",
+            "🎊 كل يوم معك هو يوم إنجاز جديد!",
+            "💫 تألقك المستمر يلهم الجميع للأفضل!"
+        ];
+
+        // Show success modal with order details and encouraging message
+        function showSuccessModal(team, details, originalText) {
+            const modal = document.getElementById('successModal');
+            const modalTeam = document.getElementById('modalTeam');
+            const modalOrderCount = document.getElementById('modalOrderCount');
+            const modalTotalSales = document.getElementById('modalTotalSales');
+            const modalEncouragement = document.getElementById('modalEncouragement');
+            
+            // Set team name with proper display
+            const teamNames = {
+                'Team A': 'تيم (A)',
+                'Team B': 'تيم (B)', 
+                'Team C': 'تيم (C)',
+                'Team C1': 'تيم (C1)',
+                'Follow-up': 'تيم (فولو أب)'
+            };
+            modalTeam.textContent = teamNames[team] || team;
+            
+            // Set order details
+            if (details) {
+                modalOrderCount.textContent = details.order_count + ' أوردر';
+                modalTotalSales.textContent = details.total_sales.toLocaleString('ar-EG') + ' ج';
+            } else {
+                modalOrderCount.textContent = 'غير متاح';
+                modalTotalSales.textContent = 'غير متاح';
+            }
+            
+            // Get random encouraging message
+            const randomIndex = Math.floor(Math.random() * encouragingMessages.length);
+            modalEncouragement.textContent = encouragingMessages[randomIndex];
+            
+            // Store data for later use in success message
+            window.lastOrderData = {
+                team: teamNames[team] || team,
+                details: details
+            };
+            
+            // Show modal
+            modal.style.display = 'block';
+        }
+
+        // Close success modal and show persistent success message
+        function closeSuccessModal() {
+            const modal = document.getElementById('successModal');
+            const responseMessage = document.getElementById("responseMessage");
+            
+            modal.style.display = 'none';
+            
+            // Show persistent success message with same data
+            if (window.lastOrderData) {
+                const data = window.lastOrderData;
+                responseMessage.className = "message success";
+                
+                let detailedMessage = "تم حفظ الأوردرات بنجاح! ✅";
+                detailedMessage += `\n\n📊 ملخص البيانات المضافة:`;
+                detailedMessage += `\n👥 الفريق: ${data.team}`;
+                
+                if (data.details) {
+                    detailedMessage += `\n📦 عدد الأوردرات: ${data.details.order_count}`;
+                    detailedMessage += `\n💰 إجمالي المبيعات: ${data.details.total_sales.toLocaleString('ar-EG')} ج`;
+                }
+                
+                responseMessage.textContent = detailedMessage;
+                responseMessage.style.display = "block";
+                
+                // Clear stored data
+                window.lastOrderData = null;
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('successModal');
+            if (event.target === modal) {
+                closeSuccessModal(); // Use the same function to show persistent message
+            }
         }
 
         async function clearAllData() {
@@ -443,6 +672,42 @@
             }
         });
     </script>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✅ تم حفظ الأوردرات بنجاح!</div>
+                <div class="modal-subtitle">ملخص البيانات المضافة</div>
+            </div>
+            
+            <div class="modal-stats">
+                <div class="stat-item">
+                    <span class="stat-label">👥 الفريق:</span>
+                    <span class="stat-value" id="modalTeam">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">📦 عدد الأوردرات:</span>
+                    <span class="stat-value" id="modalOrderCount">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">💰 إجمالي المبيعات:</span>
+                    <span class="stat-value" id="modalTotalSales">-</span>
+                </div>
+            </div>
+
+            <div id="modalEncouragement" class="modal-encouragement">
+                🌟 أنت قائد استثنائي، فريقك محظوظ بوجودك!
+            </div>
+
+            <div class="modal-message">
+                📋 <strong>رسالة للتيم ليدر:</strong><br>
+                يرجى مراجعة ومقارنة الأعداد المضافة مع الأعداد المستلمة للتأكد من صحة البيانات وعدم وجود أخطاء في الإدخال.
+            </div>
+
+            <button class="modal-close" onclick="closeSuccessModal()">فهمت، شكراً</button>
+        </div>
+    </div>
 </body>
 </html>
 
