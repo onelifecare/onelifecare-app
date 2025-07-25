@@ -817,10 +817,15 @@
             if (reportDateInput) {
                 // Use Cairo timezone (UTC+2)
                 const today = new Date();
+                console.log('Original date:', today);
                 const cairoOffset = 2 * 60; // Cairo is UTC+2 (120 minutes)
                 const utc = today.getTime() + (today.getTimezoneOffset() * 60000);
                 const cairoTime = new Date(utc + (cairoOffset * 60000));
-                reportDateInput.value = cairoTime.toISOString().split('T')[0];
+                console.log('Cairo time:', cairoTime);
+                const dateString = cairoTime.toISOString().split('T')[0];
+                console.log('Date string:', dateString);
+                reportDateInput.value = dateString;
+                console.log('Set date input to:', reportDateInput.value);
             }
             
             // Initialize character counter
