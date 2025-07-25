@@ -540,8 +540,19 @@
                 return;
             }
 
-            // Encode the report text for URL
-            const reportText = encodeURIComponent(reportContent.textContent);
+            // Get the report text
+            let reportText = reportContent.textContent;
+            
+            // Manual encoding that preserves emojis
+            // Only encode special characters that break URLs, keep emojis as-is
+            reportText = reportText
+                .replace(/%/g, '%25')  // Encode % first
+                .replace(/&/g, '%26')  // Encode &
+                .replace(/\+/g, '%2B') // Encode +
+                .replace(/#/g, '%23')  // Encode #
+                .replace(/\?/g, '%3F') // Encode ?
+                .replace(/=/g, '%3D')  // Encode =
+                .replace(/\s/g, '%20'); // Encode spaces
             
             // Create WhatsApp URL
             const whatsappUrl = `https://wa.me/?text=${reportText}`;
