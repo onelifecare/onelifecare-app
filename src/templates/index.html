@@ -543,60 +543,28 @@
             // Get the report text
             let reportText = reportContent.textContent;
             
-            // Replace problematic emojis with WhatsApp-compatible alternatives
-            const emojiMap = {
-                '📊': '📊',  // Chart - keep as is
-                '📅': '📅',  // Calendar - keep as is  
-                '🕐': '🕐',  // Clock - keep as is
-                '🔥': '🔥',  // Fire - keep as is
-                '⚡': '⚡',  // Lightning - keep as is
-                '💎': '💎',  // Diamond - keep as is
-                '🚀': '🚀',  // Rocket - keep as is
-                '📞': '📞',  // Phone - keep as is
-                '💰': '💰',  // Money bag - keep as is
-                '📦': '📦',  // Package - keep as is
-                '💵': '💵',  // Dollar - keep as is
-                '💸': '💸',  // Money with wings - keep as is
-                '🌟': '⭐',  // Replace complex star with simple star
-                '✨': '✨',  // Sparkles - keep as is
-                // Replace Unicode box drawing characters
-                '═': '=',
-                '▬': '-'
-            };
+            // Replace problematic emojis with simple text alternatives for WhatsApp
+            reportText = reportText.replace(/📊/g, '[📊]');
+            reportText = reportText.replace(/📅/g, '[📅]');
+            reportText = reportText.replace(/🕐/g, '[🕐]');
+            reportText = reportText.replace(/🔥/g, '[🔥]');
+            reportText = reportText.replace(/⚡/g, '[⚡]');
+            reportText = reportText.replace(/💎/g, '[💎]');
+            reportText = reportText.replace(/🚀/g, '[🚀]');
+            reportText = reportText.replace(/📞/g, '[📞]');
+            reportText = reportText.replace(/💰/g, '[💰]');
+            reportText = reportText.replace(/📦/g, '[📦]');
+            reportText = reportText.replace(/💵/g, '[💵]');
+            reportText = reportText.replace(/💸/g, '[💸]');
+            reportText = reportText.replace(/🌟/g, '[⭐]');
+            reportText = reportText.replace(/✨/g, '[✨]');
             
-            // Apply replacements
-            for (const [original, replacement] of Object.entries(emojiMap)) {
-                reportText = reportText.replaceAll(original, replacement);
-            }
+            // Replace Unicode box drawing characters
+            reportText = reportText.replace(/═/g, '=');
+            reportText = reportText.replace(/▬/g, '-');
             
-            // Use a more careful encoding approach
-            // Split into chunks and encode each part separately
-            const chunks = reportText.split('');
-            let encodedText = '';
-            
-            for (let char of chunks) {
-                // Check if character is safe to encode
-                if (char.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFE70-\uFEFF\uFB50-\uFDFF\w\s\-\+\.\,\:\(\)\[\]]/)) {
-                    // Arabic text, numbers, basic punctuation - encode normally
-                    encodedText += encodeURIComponent(char);
-                } else if (char.match(/[\u1F600-\u1F64F\u1F300-\u1F5FF\u1F680-\u1F6FF\u1F1E0-\u1F1FF\u2600-\u26FF\u2700-\u27BF]/)) {
-                    // Emojis - try to preserve
-                    try {
-                        const encoded = encodeURIComponent(char);
-                        if (!encoded.includes('%EF%BF%BD')) {
-                            encodedText += encoded;
-                        } else {
-                            // If emoji gets corrupted, replace with simple alternative
-                            encodedText += encodeURIComponent('*');
-                        }
-                    } catch (e) {
-                        encodedText += encodeURIComponent('*');
-                    }
-                } else {
-                    // Other characters - encode normally
-                    encodedText += encodeURIComponent(char);
-                }
-            }
+            // Encode the modified report text for URL
+            const encodedText = encodeURIComponent(reportText);
             
             // Create WhatsApp URL
             const whatsappUrl = `https://wa.me/?text=${encodedText}`;
