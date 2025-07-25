@@ -540,11 +540,42 @@
                 return;
             }
 
-            // Encode the report text for URL
-            const reportText = encodeURIComponent(reportContent.textContent);
+            // Get the report text
+            let reportText = reportContent.textContent;
+            
+            // Try different encoding approach to preserve emojis
+            // Method 1: Use custom URL encoding that preserves emojis
+            const customEncode = (str) => {
+                return str.replace(/[^\w\s\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFE70-\uFEFF\uFB50-\uFDFF\u1F600-\u1F64F\u1F300-\u1F5FF\u1F680-\u1F6FF\u1F1E0-\u1F1FF\u2600-\u26FF\u2700-\u27BF]/g, function(match) {
+                    return encodeURIComponent(match);
+                });
+            };
+            
+            // Method 2: Try direct encoding without replacing emojis
+            let encodedText;
+            try {
+                // First try: direct encoding
+                encodedText = encodeURIComponent(reportText);
+                
+                // Check if emojis got corrupted (contain %EF%BF%BD)
+                if (encodedText.includes('%EF%BF%BD')) {
+                    // If corrupted, use alternative method
+                    encodedText = reportText.split('').map(char => {
+                        // Keep Arabic text, numbers, spaces, and common punctuation as-is
+                        if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFE70-\uFEFF\uFB50-\uFDFF\w\s\-\+\.\,\:\(\)\[\]]/.test(char)) {
+                            return char;
+                        }
+                        // For emojis and special characters, try to encode properly
+                        return encodeURIComponent(char);
+                    }).join('');
+                }
+            } catch (e) {
+                // Fallback: use simple encoding
+                encodedText = encodeURIComponent(reportText);
+            }
             
             // Create WhatsApp URL
-            const whatsappUrl = `https://wa.me/?text=${reportText}`;
+            const whatsappUrl = `https://wa.me/?text=${encodedText}`;
             
             // Open WhatsApp in new tab
             window.open(whatsappUrl, '_blank');
