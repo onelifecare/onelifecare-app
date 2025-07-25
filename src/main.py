@@ -71,6 +71,11 @@ def save_orders():
         parsed_orders = parse_orders(orders_text)
         print(f"[DEBUG] Parsed {len(parsed_orders)} orders from input text")
         
+        # Get current time in Cairo timezone
+        cairo_tz = pytz.timezone('Africa/Cairo')
+        current_time = datetime.now(cairo_tz)
+        print(f"[DEBUG] Current Cairo time: {current_time}")
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -88,14 +93,14 @@ def save_orders():
         
         for team_name, data in team_data.items():
             if data['count'] > 0:
-                print(f"[DEBUG] Inserting into DB: team={team_name}, count={data['count']}, sales={data['sales']}")
-                cursor.execute('INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)', 
-                             (team_name, data['count'], data['sales']))
+                print(f"[DEBUG] Inserting into DB: team={team_name}, count={data['count']}, sales={data['sales']}, time={current_time}")
+                cursor.execute('INSERT INTO orders (team, order_count, sales, timestamp) VALUES (?, ?, ?, ?)', 
+                             (team_name, data['count'], data['sales'], current_time))
         
         conn.commit()
         conn.close()
         
-        print(f"[DEBUG] Successfully saved {len(parsed_orders)} orders to database")
+        print(f"[DEBUG] Successfully saved {len(parsed_orders)} orders to database with Cairo timezone")
         
         # Calculate total sales for this batch
         total_sales = sum(order['price'] for order in parsed_orders)
