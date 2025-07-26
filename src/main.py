@@ -89,6 +89,7 @@ def save_orders():
         for team_name, data in team_data.items():
             if data['count'] > 0:
                 print(f"[DEBUG] Inserting into DB: team={team_name}, count={data['count']}, sales={data['sales']}")
+                # حفظ الأوردرات بدون ربط بتاريخ محدد - سيتم استخدام إجمالي البيانات
                 cursor.execute('INSERT INTO orders (team, order_count, sales) VALUES (?, ?, ?)', 
                              (team_name, data['count'], data['sales']))
         
@@ -264,29 +265,16 @@ def generate_report():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # جلب إجمالي الأوردرات والمبيعات لكل فريق للتاريخ المحدد
-        print(f"[DEBUG] Executing query for date: {selected_date}")
+        # جلب إجمالي الأوردرات والمبيعات لكل فريق (ثابت - غير مرتبط بالتاريخ)
+        print(f"[DEBUG] Fetching total orders and sales for all teams (date-independent)")
         cursor.execute('''
             SELECT team, SUM(order_count), SUM(sales) 
             FROM orders 
-            WHERE DATE(timestamp) = ? 
             GROUP BY team 
             ORDER BY team
-        ''', (selected_date,))
+        ''')
         team_data = cursor.fetchall()
-        print(f"[DEBUG] Raw data from database for {selected_date}: {team_data}")
-        
-        # إضافة DEBUG لعرض جميع السجلات للتاريخ المحدد
-        print(f"[DEBUG] Fetching ALL records for date {selected_date}:")
-        cursor.execute('''
-            SELECT id, team, order_count, sales, timestamp 
-            FROM orders 
-            WHERE DATE(timestamp) = ? 
-            ORDER BY timestamp
-        ''', (selected_date,))
-        all_records = cursor.fetchall()
-        for record in all_records:
-            print(f"[DEBUG] Record: ID={record[0]}, Team={record[1]}, Orders={record[2]}, Sales={record[3]}, Time={record[4]}")
+        print(f"[DEBUG] Total data from database (all time): {team_data}")
         
         orders_by_team = {}
         sales_by_team = {}
@@ -294,16 +282,16 @@ def generate_report():
             orders_by_team[team] = order_count if order_count else 0
             sales_by_team[team] = sales if sales else 0
         
-        print(f"[DEBUG] Orders by team for {selected_date}: {orders_by_team}")
-        print(f"[DEBUG] Sales by team for {selected_date}: {sales_by_team}")
+        print(f"[DEBUG] Total orders by team: {orders_by_team}")
+        print(f"[DEBUG] Total sales by team: {sales_by_team}")
         
         conn.close()
 
-        # Get Facebook Ads data for the selected date
+        # Get Facebook Ads data for the selected date (spend only - varies by date)
         facebook_data = get_facebook_ads_data(selected_date)
-        print(f"[DEBUG] Facebook data for {selected_date} before update: {facebook_data}")
+        print(f"[DEBUG] Facebook spend data for {selected_date}: {facebook_data}")
         
-        # Update facebook_data with actual orders and sales from DB
+        # Update facebook_data with total orders and sales from DB (fixed - not date-dependent)
         # Map team names from DB to facebook_data keys
         team_mapping = {
             'Team A': 'A',
