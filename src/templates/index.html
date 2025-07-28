@@ -423,13 +423,32 @@
             </div>
 
             <!-- Team Data Info Section -->
-            <div id="teamDataInfo" class="team-data-info" style="display: none; margin: 20px 0; padding: 15px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px;">
-                <p style="margin: 0 0 15px 0; color: #1976d2; font-weight: 600;">
-                    إذا كنت تريد البدء من جديد، يمكنك مسح البيانات من هنا:
-                </p>
-                <div class="button-group">
-                    <button onclick="clearTeamData()" class="btn-danger" style="background: #f44336;">🗑️ مسح بيانات الفريق</button>
-                    <button onclick="clearAllData()" class="btn-danger" style="background: #ff9800;">🗑️ مسح جميع البيانات</button>
+            <div id="teamDataInfo" class="team-data-info" style="display: none; margin: 20px 0; padding: 20px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 12px;">
+                <div id="teamStatsDisplay" style="text-align: center; margin-bottom: 20px; padding: 15px; background: rgba(33, 150, 243, 0.1); border-radius: 8px;">
+                    <p style="margin: 0; color: #1976d2; font-weight: 700; font-size: 18px;">
+                        📊 <span id="teamNameDisplay">تيم (A)</span> لديه <span id="teamOrdersCount">0</span> أوردر محفوظين (<span id="teamSalesAmount">0</span> ج)
+                    </p>
+                </div>
+                
+                <div style="margin: 15px 0; padding: 10px; background: rgba(76, 175, 80, 0.1); border-radius: 6px;">
+                    <p style="margin: 0; color: #388e3c; font-weight: 600; font-size: 14px;">
+                        ℹ️ إذا كنت تريد البدء من جديد، يمكنك مسح البيانات من هنا
+                    </p>
+                </div>
+                
+                <div style="margin: 15px 0; padding: 10px; background: rgba(255, 193, 7, 0.1); border-radius: 6px;">
+                    <p style="margin: 0; color: #f57c00; font-weight: 600; font-size: 14px;">
+                        📝 إذا كنت تريد إكمال البيانات، تجاهل هذه الرسالة
+                    </p>
+                </div>
+
+                <div class="button-group" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                    <button onclick="clearTeamData()" id="clearTeamBtn" style="background: #ff9800; color: white; border: none; padding: 12px 20px; border-radius: 25px; font-weight: 600; font-size: 16px; cursor: pointer;">
+                        🗑️ مسح بيانات <span id="teamNameInBtn">تيم (A)</span>
+                    </button>
+                    <button onclick="clearAllData()" style="background: #f44336; color: white; border: none; padding: 12px 20px; border-radius: 25px; font-weight: 600; font-size: 16px; cursor: pointer;">
+                        🗑️ مسح جميع البيانات
+                    </button>
                 </div>
             </div>
 
@@ -875,19 +894,26 @@
             const teamSelect = document.getElementById('teamSelect');
             const teamDataInfo = document.getElementById('teamDataInfo');
             const selectedTeam = teamSelect.value;
+            const selectedTeamText = teamSelect.options[teamSelect.selectedIndex].text;
 
             try {
                 const response = await fetch(`/get_team_orders?team=${encodeURIComponent(selectedTeam)}`);
                 const data = await response.json();
                 
                 if (data.orders > 0 || data.sales > 0) {
+                    // Update team stats display
+                    document.getElementById('teamNameDisplay').textContent = selectedTeamText;
+                    document.getElementById('teamOrdersCount').textContent = data.orders;
+                    document.getElementById('teamSalesAmount').textContent = Math.round(data.sales);
+                    document.getElementById('teamNameInBtn').textContent = selectedTeamText;
+                    
                     teamDataInfo.style.display = 'block';
                 } else {
                     teamDataInfo.style.display = 'none';
                 }
             } catch (error) {
                 console.error('Error checking team data:', error);
-                teamDataInfo.style.display = 'block'; // Show by default on error
+                teamDataInfo.style.display = 'none';
             }
         }
 
@@ -895,8 +921,9 @@
         async function clearTeamData() {
             const teamSelect = document.getElementById('teamSelect');
             const selectedTeam = teamSelect.value;
+            const selectedTeamText = teamSelect.options[teamSelect.selectedIndex].text;
             
-            if (!confirm(`هل أنت متأكد من مسح بيانات ${teamSelect.options[teamSelect.selectedIndex].text}؟`)) {
+            if (!confirm(`هل أنت متأكد من مسح بيانات ${selectedTeamText}؟`)) {
                 return;
             }
 
@@ -912,13 +939,41 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`تم مسح بيانات ${teamSelect.options[teamSelect.selectedIndex].text} بنجاح!`);
+                    alert(`تم مسح بيانات ${selectedTeamText} بنجاح!`);
                     checkTeamData(); // Refresh team data display
                 } else {
                     alert('حدث خطأ أثناء مسح البيانات: ' + result.error);
                 }
             } catch (error) {
                 console.error('Error clearing team data:', error);
+                alert('حدث خطأ أثناء مسح البيانات');
+            }
+        }
+
+        // Clear all data
+        async function clearAllData() {
+            if (!confirm('هل أنت متأكد من مسح جميع البيانات؟ هذا الإجراء لا يمكن التراجع عنه!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/clear_all_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('تم مسح جميع البيانات بنجاح!');
+                    checkTeamData(); // Refresh team data display
+                } else {
+                    alert('حدث خطأ أثناء مسح البيانات: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error clearing all data:', error);
                 alert('حدث خطأ أثناء مسح البيانات');
             }
         }

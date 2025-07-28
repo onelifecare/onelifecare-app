@@ -605,6 +605,23 @@ def clear_team_data():
         print(f"Error clearing team data: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/clear_all_data', methods=['POST'])
+def clear_all_data():
+    """مسح جميع البيانات"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM orders")
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error clearing all data: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
