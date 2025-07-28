@@ -413,13 +413,24 @@
             
             <div class="form-group">
                 <label for="teamSelect">اختر الفريق:</label>
-                <select id="teamSelect">
+                <select id="teamSelect" onchange="checkTeamData()">
                     <option value="Team A">تيم (A)</option>
                     <option value="Team B">تيم (B)</option>
                     <option value="Team C">تيم (C)</option>
                     <option value="Team C1">تيم (C1)</option>
                     <option value="Follow-up">تيم (فولو أب)</option>
                 </select>
+            </div>
+
+            <!-- Team Data Info Section -->
+            <div id="teamDataInfo" class="team-data-info" style="display: none; margin: 20px 0; padding: 15px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px;">
+                <p style="margin: 0 0 15px 0; color: #1976d2; font-weight: 600;">
+                    إذا كنت تريد البدء من جديد، يمكنك مسح البيانات من هنا:
+                </p>
+                <div class="button-group">
+                    <button onclick="clearTeamData()" class="btn-danger" style="background: #f44336;">🗑️ مسح بيانات الفريق</button>
+                    <button onclick="clearAllData()" class="btn-danger" style="background: #ff9800;">🗑️ مسح جميع البيانات</button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -857,6 +868,59 @@
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
             reportDateInput.value = yesterday.toISOString().split('T')[0];
+        }
+
+        // Check and display team data
+        async function checkTeamData() {
+            const teamSelect = document.getElementById('teamSelect');
+            const teamDataInfo = document.getElementById('teamDataInfo');
+            const selectedTeam = teamSelect.value;
+
+            try {
+                const response = await fetch(`/get_team_orders?team=${encodeURIComponent(selectedTeam)}`);
+                const data = await response.json();
+                
+                if (data.orders > 0 || data.sales > 0) {
+                    teamDataInfo.style.display = 'block';
+                } else {
+                    teamDataInfo.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking team data:', error);
+                teamDataInfo.style.display = 'block'; // Show by default on error
+            }
+        }
+
+        // Clear team data
+        async function clearTeamData() {
+            const teamSelect = document.getElementById('teamSelect');
+            const selectedTeam = teamSelect.value;
+            
+            if (!confirm(`هل أنت متأكد من مسح بيانات ${teamSelect.options[teamSelect.selectedIndex].text}؟`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/clear_team_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ team: selectedTeam })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`تم مسح بيانات ${teamSelect.options[teamSelect.selectedIndex].text} بنجاح!`);
+                    checkTeamData(); // Refresh team data display
+                } else {
+                    alert('حدث خطأ أثناء مسح البيانات: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error clearing team data:', error);
+                alert('حدث خطأ أثناء مسح البيانات');
+            }
         }
     </script>
 

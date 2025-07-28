@@ -552,6 +552,59 @@ def format_detailed_report(data, selected_date=None):
     
     return report
 
+@app.route('/get_team_orders')
+def get_team_orders():
+    """الحصول على بيانات فريق محدد"""
+    team = request.args.get('team')
+    if not team:
+        return jsonify({'error': 'Team not specified'}), 400
+    
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT COALESCE(SUM(order_count), 0) as total_orders, 
+                   COALESCE(SUM(sales), 0) as total_sales
+            FROM orders 
+            WHERE team = ?
+        """, (team,))
+        
+        result = cursor.fetchone()
+        conn.close()
+        
+        return jsonify({
+            'orders': result[0] if result else 0,
+            'sales': result[1] if result else 0
+        })
+        
+    except Exception as e:
+        print(f"Error getting team orders: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear_team_data', methods=['POST'])
+def clear_team_data():
+    """مسح بيانات فريق محدد"""
+    try:
+        data = request.get_json()
+        team = data.get('team')
+        
+        if not team:
+            return jsonify({'success': False, 'error': 'Team not specified'})
+        
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM orders WHERE team = ?", (team,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error clearing team data: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=True, host='0.0.0.0', port=5000)
