@@ -294,11 +294,11 @@ def generate_report():
         # Update facebook_data with total orders and sales from DB (fixed - not date-dependent)
         # Map team names from DB to facebook_data keys
         team_mapping = {
-            'تيم (A)': 'A',
-            'تيم (B)': 'B', 
-            'تيم (C)': 'C',
-            'تيم (C1)': 'C1',
-            'تيم (فولو أب)': 'Follow-up'
+            'Team A': 'A',
+            'Team B': 'B', 
+            'Team C': 'C',
+            'Team C1': 'C1',
+            'Follow-up': 'Follow-up'
         }
         
         for db_team, fb_team in team_mapping.items():
