@@ -560,6 +560,18 @@ def get_team_orders():
         return jsonify({'error': 'Team not specified'}), 400
     
     try:
+        # Map team names from frontend to database format
+        team_mapping = {
+            'A': 'Team A',
+            'B': 'Team B', 
+            'C': 'Team C',
+            'C1': 'Team C1',
+            'فولو أب': 'Follow-up'
+        }
+        
+        # Convert frontend team name to database team name
+        db_team_name = team_mapping.get(team, team)
+        
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
@@ -568,7 +580,7 @@ def get_team_orders():
                    COALESCE(SUM(sales), 0) as total_sales
             FROM orders 
             WHERE team = ?
-        """, (team,))
+        """, (db_team_name,))
         
         result = cursor.fetchone()
         conn.close()
