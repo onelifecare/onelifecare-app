@@ -58,6 +58,63 @@ def get_db_connection():
 def index():
     return render_template("index.html")
 
+@app.route('/save_orders', methods=['POST'])
+def save_orders_frontend():
+    """حفظ الأوردرات - endpoint للـ frontend"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data received'}), 400
+            
+        team = data.get('team', '')
+        text = data.get('text', '')
+        
+        if not team or not text.strip():
+            return jsonify({'success': False, 'error': 'الرجاء اختيار الفريق وإدخال نصوص الأوردرات'}), 400
+
+        # Map team names from frontend to database format
+        team_mapping = {
+            'A': 'Team A',
+            'B': 'Team B', 
+            'C': 'Team C',
+            'C1': 'Team C1',
+            'فولو أب': 'Follow-up'
+        }
+        
+        db_team_name = team_mapping.get(team, team)
+        
+        # Parse orders from text
+        orders = parse_orders(text)
+        
+        if not orders:
+            return jsonify({'success': False, 'error': 'لم يتم العثور على أوردرات صحيحة في النص'})
+        
+        # Save to database
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        total_sales = sum(order['amount'] for order in orders)
+        order_count = len(orders)
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        
+        cursor.execute('''
+            INSERT INTO orders (team, order_count, sales, date)
+            VALUES (?, ?, ?, ?)
+        ''', (db_team_name, order_count, total_sales, current_date))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'order_count': order_count,
+            'total_sales': total_sales
+        })
+        
+    except Exception as e:
+        print(f"Error in save_orders_frontend: {e}")
+        return jsonify({'success': False, 'error': f'حدث خطأ: {str(e)}'})
+
 @app.route('/api/save_orders', methods=['POST'])
 def save_orders():
     try:
@@ -599,23 +656,49 @@ def clear_team_data():
     """مسح بيانات فريق محدد"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data received'})
+            
         team = data.get('team')
         
         if not team:
             return jsonify({'success': False, 'error': 'Team not specified'})
         
+        # Map team names from frontend to database format
+        team_mapping = {
+            'A': 'Team A',
+            'B': 'Team B', 
+            'C': 'Team C',
+            'C1': 'Team C1',
+            'فولو أب': 'Follow-up'
+        }
+        
+        db_team_name = team_mapping.get(team, team)
+        
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
-        cursor.execute("DELETE FROM orders WHERE team = ?", (team,))
+        # Check if team has data before deleting
+        cursor.execute("SELECT COUNT(*) FROM orders WHERE team = ?", (db_team_name,))
+        count = cursor.fetchone()[0]
+        
+        if count == 0:
+            conn.close()
+            return jsonify({'success': False, 'error': f'لا توجد بيانات للفريق {team}'})
+        
+        cursor.execute("DELETE FROM orders WHERE team = ?", (db_team_name,))
+        deleted_rows = cursor.rowcount
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True})
+        return jsonify({
+            'success': True, 
+            'message': f'تم مسح {deleted_rows} سجل للفريق {team}'
+        })
         
     except Exception as e:
         print(f"Error clearing team data: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': f'حدث خطأ: {str(e)}'})
 
 @app.route('/clear_all_data', methods=['POST'])
 def clear_all_data():
@@ -624,15 +707,27 @@ def clear_all_data():
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
+        # Check if there's any data before deleting
+        cursor.execute("SELECT COUNT(*) FROM orders")
+        count = cursor.fetchone()[0]
+        
+        if count == 0:
+            conn.close()
+            return jsonify({'success': False, 'error': 'لا توجد بيانات لمسحها'})
+        
         cursor.execute("DELETE FROM orders")
+        deleted_rows = cursor.rowcount
         conn.commit()
         conn.close()
         
-        return jsonify({'success': True})
+        return jsonify({
+            'success': True,
+            'message': f'تم مسح {deleted_rows} سجل من جميع الفرق'
+        })
         
     except Exception as e:
         print(f"Error clearing all data: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': f'حدث خطأ: {str(e)}'})
 
 if __name__ == "__main__":
     init_db()
