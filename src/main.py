@@ -7,6 +7,7 @@ import re
 import requests
 from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
+from budget_tracker import get_active_campaigns_budget, format_budget_report
 
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -174,6 +175,24 @@ def get_facebook_ads_data():
                 # في حالة الخطأ، نحتفظ بالقيمة الافتراضية 0
 
     return data
+
+@app.route('/api/get_running_budget', methods=['GET'])
+def get_running_budget():
+    """API endpoint لجلب إجمالي البادجت الشغال للحملات النشطة"""
+    try:
+        budget_data = get_active_campaigns_budget()
+        report_text = format_budget_report(budget_data)
+        
+        return jsonify({
+            "success": True,
+            "budget_data": budget_data,
+            "report": report_text
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"حدث خطأ: {str(e)}"
+        }), 500
 
 @app.route('/api/generate_report', methods=['GET'])
 def generate_report():

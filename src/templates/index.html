@@ -369,6 +369,7 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showPage('input-page')">إدخال الأوردرات</button>
             <button class="nav-tab" onclick="showPage('report-page')">عرض التقرير</button>
+            <button class="nav-tab" onclick="showPage('budget-page')">البادجت الشغال</button>
         </div>
     </div>
 
@@ -421,6 +422,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Budget Page -->
+        <div id="budget-page" class="page">
+            <h1>📊 البادجت الشغال للحملات النشطة</h1>
+            
+            <div class="button-group">
+                <button onclick="loadBudget()" class="btn-success">🔄 تحديث البيانات</button>
+            </div>
+
+            <div id="budgetContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل بيانات البادجت...
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -444,6 +461,11 @@
             // Load report if report page is selected
             if (pageId === 'report-page') {
                 loadReport();
+            }
+            
+            // Load budget if budget page is selected
+            if (pageId === 'budget-page') {
+                loadBudget();
             }
         }
 
@@ -658,6 +680,82 @@
                 }
             } catch (error) {
                 reportContainer.innerHTML = `
+                    <div class="message error" style="display: block;">
+                        خطأ في الاتصال بالخادم: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function loadBudget() {
+            const budgetContainer = document.getElementById("budgetContainer");
+            
+            // Show loading state
+            budgetContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل بيانات البادجت...
+                </div>
+            `;
+
+            try {
+                const response = await fetch("/api/get_running_budget");
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    const budgetData = data.budget_data;
+                    
+                    let html = '';
+                    
+                    // عرض بيانات كل فريق
+                    const teams = ['A', 'B', 'C', 'C1'];
+                    teams.forEach(team => {
+                        const teamData = budgetData[team];
+                        html += `
+                            <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 20px;">تيم (${team})</h3>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                                        <span style="color: #666; font-weight: 600;">عدد الحملات النشطة:</span>
+                                        <span style="color: #333; font-weight: 700; font-size: 18px;">${teamData.campaigns_count} حملة</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                                        <span style="color: #666; font-weight: 600;">البادجت اليومي:</span>
+                                        <span style="color: #4CAF50; font-weight: 700; font-size: 18px;">${teamData.daily_budget.toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ج</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    // عرض الإجمالي
+                    const totalData = budgetData.total;
+                    html += `
+                        <div style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); padding: 25px; border-radius: 10px; margin-top: 20px; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
+                            <h3 style="color: white; margin-bottom: 20px; font-size: 22px; text-align: center;">📈 الإجمالي الكلي</h3>
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 2px solid rgba(255,255,255,0.3);">
+                                    <span style="color: rgba(255,255,255,0.95); font-weight: 600; font-size: 16px;">إجمالي عدد الحملات النشطة:</span>
+                                    <span style="color: white; font-weight: 700; font-size: 22px;">${totalData.campaigns_count} حملة</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+                                    <span style="color: rgba(255,255,255,0.95); font-weight: 600; font-size: 16px;">إجمالي البادجت اليومي:</span>
+                                    <span style="color: white; font-weight: 700; font-size: 24px;">${totalData.daily_budget.toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ج</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    budgetContainer.innerHTML = html;
+                } else {
+                    budgetContainer.innerHTML = `
+                        <div class="message error" style="display: block;">
+                            خطأ في تحميل بيانات البادجت: ${data.error || "خطأ غير معروف"}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                budgetContainer.innerHTML = `
                     <div class="message error" style="display: block;">
                         خطأ في الاتصال بالخادم: ${error.message}
                     </div>
