@@ -7,10 +7,14 @@ import re
 import requests
 from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
-from budget_tracker import get_active_campaigns_budget, format_budget_report
 
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
+
+# Import budget tracker functions
+import sys
+sys.path.insert(0, basedir)
+from budget_tracker import get_active_campaigns_budget, format_budget_report
 
 from whitenoise import WhiteNoise
 
