@@ -11,6 +11,11 @@ from facebook_business.adobjects.adaccount import AdAccount
 # Get the absolute path of the directory containing this script
 basedir = os.path.abspath(os.path.dirname(__file__))
 
+# Import budget tracker
+import sys
+sys.path.insert(0, basedir)
+from budget_tracker import get_active_campaigns_budget
+
 from whitenoise import WhiteNoise
 
 app = Flask(__name__,
@@ -339,6 +344,23 @@ def format_detailed_report(data):
     report += f"ROAS الكلي :/ {total_roas:.2f}\n"
     
     return report
+
+@app.route('/api/get_running_budget', methods=['GET'])
+def get_running_budget():
+    """
+    API endpoint to get running budget for all active campaigns
+    """
+    try:
+        budget_data = get_active_campaigns_budget()
+        return jsonify({
+            'success': True,
+            'data': budget_data
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == "__main__":
     init_db()

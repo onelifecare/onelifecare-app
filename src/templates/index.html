@@ -253,6 +253,7 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showPage('input-page')">إدخال الأوردرات</button>
             <button class="nav-tab" onclick="showPage('report-page')">عرض التقرير</button>
+            <button class="nav-tab" onclick="showPage('budget-page')">البادجت الشغال</button>
         </div>
     </div>
 
@@ -302,6 +303,22 @@
                 <div class="loading">
                     <div class="spinner"></div>
                     جاري تحميل التقرير...
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Page -->
+        <div id="budget-page" class="page">
+            <h1>📊 البادجت الشغال للحملات النشطة</h1>
+            
+            <div class="button-group">
+                <button onclick="loadBudget()" class="btn-success">🔄 تحديث البيانات</button>
+            </div>
+
+            <div id="budgetContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل بيانات البادجت...
                 </div>
             </div>
         </div>
@@ -429,6 +446,69 @@
                 }
             } catch (error) {
                 reportContainer.innerHTML = `
+                    <div class="message error" style="display: block;">
+                        خطأ في الاتصال بالخادم: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Load budget data
+        async function loadBudget() {
+            const budgetContainer = document.getElementById('budgetContainer');
+            budgetContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    جاري تحميل بيانات البادجت...
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/get_running_budget');
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    let html = '';
+
+                    // Display each team's budget
+                    for (const [teamName, teamData] of Object.entries(data)) {
+                        if (teamName === 'total') continue;
+
+                        html += `
+                            <div class="report-section">
+                                <h2>تيم (${teamName})</h2>
+                                <div class="report-content">
+                                    <p><strong>عدد الحملات النشطة:</strong> ${teamData.campaigns_count} حملة</p>
+                                    <p><strong>البادجت اليومي:</strong> ${teamData.daily_budget.toLocaleString('ar-EG', {minimumFractionDigits: 2})} ج</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Display totals
+                    if (data.total) {
+                        html += `
+                            <div class="report-section" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none;">
+                                <h2 style="color: white;">✅ الإجمالي الكلي</h2>
+                                <div class="report-content">
+                                    <p><strong>إجمالي عدد الحملات النشطة:</strong> ${data.total.campaigns_count} حملة</p>
+                                    <p><strong>إجمالي البادجت اليومي:</strong> ${data.total.daily_budget.toLocaleString('ar-EG', {minimumFractionDigits: 2})} ج</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    budgetContainer.innerHTML = html;
+                } else {
+                    budgetContainer.innerHTML = `
+                        <div class="message error" style="display: block;">
+                            خطأ في تحميل بيانات البادجت: ${result.error || "خطأ غير معروف"}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                budgetContainer.innerHTML = `
                     <div class="message error" style="display: block;">
                         خطأ في الاتصال بالخادم: ${error.message}
                     </div>
